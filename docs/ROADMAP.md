@@ -2,7 +2,7 @@
 
 | Phase | Contenu | État |
 |---|---|---|
-| 1 | Recherche Nation Wheel et modèles LLM | Fait, avec les limites notées dans `01` et `02` |
+| 1 | Recherche Nation Wheel et modèles LLM | Fait : wiki lu en entier, règles et tirages repris ; limites notées dans `01` et `02` |
 | 2 | Architecture | Fait |
 | 3 | Moteur de simulation | Fait |
 | 4 | Nations et background | Fait |
@@ -24,5 +24,5 @@
 - Essai avec un vrai modèle local et ajustement des prompts selon le résultat.
 - LLM dans le navigateur du téléphone (WebLLM) pour un mode autonome complet.
 - Vitesse avec 300 à 500 nations : le calcul des options par nation est le point lent.
-- Règles détaillées du wiki Nation Wheel, quand elles seront accessibles.
+- Carte officielle de la saison 1 (aujourd'hui les nations du wiki sont placées sur une carte générée).
 - Secteurs économiques, routes commerciales, batailles navales et aériennes distinctes.

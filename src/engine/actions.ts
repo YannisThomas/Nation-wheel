@@ -57,6 +57,10 @@ export function validateAction(world: World, a: Action): string | null {
   const n = world.nations[a.nation];
   if (!n) return 'nation inconnue';
   if (!n.alive) return 'nation disparue';
+  if (n.overlord >= 0) {
+    if (a.type === 'declare_war') return 'un État sous tutelle ne peut pas déclarer la guerre';
+    if (n.colony && (a.type === 'press_claim' || a.type === 'threaten' || a.type === 'sanction' || (a.type === 'propose' && a.kind === 'defense_pact'))) return 'une colonie ne mène pas sa propre politique étrangère';
+  }
   switch (a.type) {
     case 'set_budget': {
       if (!a.budget || typeof a.budget !== 'object') return 'budget manquant';
@@ -164,6 +168,7 @@ export function validateAction(world: World, a: Action): string | null {
       if (err) return err;
       const t = world.nations[a.target];
       if (warBetween(world, n.id, t.id)) return 'déjà en guerre';
+      if (t.overlord === n.id) return 'cible déjà sous notre tutelle';
       const rel = getRel(world, n.id, t.id);
       if (rel.truceUntil > world.tick) return 'trêve en cours';
       if (rel.non_aggression >= 0) return 'pacte de non-agression en vigueur';
@@ -172,6 +177,9 @@ export function validateAction(world: World, a: Action): string | null {
       if (n.warExhaustion > 60) return 'nation trop épuisée par la guerre';
       return null;
     }
+    case 'declare_independence':
+      if (n.overlord < 0) return 'nation déjà souveraine';
+      return warsOf(world, n.id).length ? 'impossible en pleine guerre' : null;
     case 'set_stance':
       if (a.stance !== 'offensive' && a.stance !== 'defensive') return 'posture inconnue';
       return warsOf(world, n.id).length ? null : "la nation n'est pas en guerre";
@@ -346,6 +354,19 @@ function apply(world: World, a: Action): Record<string, number> {
     case 'set_stance':
       for (const w of warsOf(world, n.id)) w.stance[n.id] = a.stance;
       return {};
+    case 'declare_independence': {
+      const lord = world.nations[n.overlord];
+      // Une métropole occupée ailleurs, instable ou à peine plus forte laisse partir ; sinon elle réprime.
+      const lets = warsOf(world, lord.id).length > 0 || lord.stability < 35 || lord.mil.power < 1.5 * n.mil.power;
+      n.overlord = -1;
+      n.colony = false;
+      n.stability = clamp(n.stability + 10, 0, 100);
+      shiftOpinion(world, n.id, lord.id, -20);
+      lord.mind.urgency = 1;
+      addJournal(world, 'independence', [n.id, lord.id], `${n.name} proclame son indépendance de ${lord.name}.`);
+      if (!lets && validateAction(world, { type: 'declare_war', nation: lord.id, target: n.id }) === null) declareWar(world, lord.id, n.id);
+      return { war: lets ? 0 : 1 };
+    }
   }
 }
 

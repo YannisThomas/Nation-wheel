@@ -20,7 +20,7 @@ export type NationRow = number[];
 
 export interface NationInfo {
   id: number; name: string; capitalName: string; capitalCell: number; flag: Nation['flag'];
-  government: string; ideology: string; culture: string; leader: string; trait: string; alive: boolean; founded: number;
+  government: string; govLabel: string; overlord: number; colony: boolean; ideology: string; culture: string; leader: string; trait: string; alive: boolean; founded: number;
 }
 
 export interface WarView { id: number; name: string; attackers: number[]; defenders: number[]; start: number; score: number; casualties: number }
@@ -196,7 +196,7 @@ export class SimHost {
   // ---- Messages vers l'interface ----
 
   private info(n: Nation): NationInfo {
-    return { id: n.id, name: n.name, capitalName: n.capitalName, capitalCell: n.capitalCell, flag: n.flag, government: n.government, ideology: n.ideology, culture: n.culture, leader: n.leader.name, trait: n.leader.trait, alive: n.alive, founded: n.foundedTick };
+    return { id: n.id, name: n.name, capitalName: n.capitalName, capitalCell: n.capitalCell, flag: n.flag, government: n.government, govLabel: n.wheel.government, overlord: n.overlord, colony: n.colony, ideology: n.ideology, culture: n.culture, leader: n.leader.name, trait: n.leader.trait, alive: n.alive, founded: n.foundedTick };
   }
 
   private state(full = false): StateMsg {

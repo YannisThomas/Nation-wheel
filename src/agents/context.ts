@@ -55,6 +55,8 @@ export function buildContext(world: World, n: Nation, sit: Situation, options: O
 
   const lines: string[] = [];
   lines.push(`DATE : ${formatDate(world)}`, '', `NATION : ${n.name} (capitale ${n.capitalName}), ${STATUS_FR[n.status]}`);
+  if (n.overlord >= 0) lines.push(`Statut : ${n.colony ? 'colonie' : 'protectorat'} de ${world.nations[n.overlord].name} (tribut versé, pas de guerre de notre propre chef)`);
+  lines.push(`Classe militaire : ${n.wheel.militaryClass} (${n.wheel.militaryRating}/11)`);
   lines.push(`Dirigeant : ${n.leader.name}, ${TRAIT_FR[n.leader.trait]}`, '', 'BACKGROUND :', `${background(world, n, sit.around).join('. ')}.`);
   if (n.mind.historical.length) lines.push(...n.mind.historical.slice(-4));
   lines.push('', `OBJECTIFS : ${top(g, GOAL_FR, 5)}`, `PENCHANTS FORTS : ${top(sit.prefs, PREF_FR, 4)}`, `PENCHANTS FAIBLES : ${low}`);

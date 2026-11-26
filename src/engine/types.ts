@@ -28,6 +28,8 @@ export type Status = 'superpower' | 'great_power' | 'regional_power' | 'middle_p
 
 export interface SimConfig {
   seed: number;
+  /** random : nations tirées à la roue ; season1 : les nations de la saison 1 du wiki Nation Wheel. */
+  roster: 'random' | 'season1';
   width: number;
   height: number;
   landFraction: number;
@@ -40,6 +42,7 @@ export interface SimConfig {
 
 export const DEFAULT_CONFIG: SimConfig = {
   seed: 1,
+  roster: 'random',
   width: 160,
   height: 90,
   landFraction: 0.36,
@@ -181,8 +184,25 @@ export interface Nation {
   /** Puissance protectrice, -1 sinon. */
   sphereOf: number;
   blockaded: boolean;
+  /** Puissance tutélaire (colonie ou protectorat), -1 si la nation est souveraine. */
+  overlord: number;
+  colony: boolean;
+  /** Multiplie la capacité de charge : nations qui vivent d'importations alimentaires. */
+  capacityFactor: number;
+  wheel: Wheel;
 
   mind: Mind;
+}
+
+/** Résultat du tirage à la roue, façon Nation Wheel. */
+export interface Wheel {
+  government: string;
+  economy: string;
+  militaryClass: string;
+  /** Note sur 11, recalculée chaque année d'après la puissance relative. */
+  militaryRating: number;
+  tags: string[];
+  bloc: string;
 }
 
 export const PREF_KEYS = ['science', 'defense', 'diplomacy', 'navy', 'trade', 'expansion', 'offensive', 'risk', 'welfare', 'industry'] as const;
@@ -331,7 +351,8 @@ export type Action =
   | { type: 'send_aid'; nation: number; target: number; amount: number }
   | { type: 'press_claim'; nation: number; target: number }
   | { type: 'declare_war'; nation: number; target: number }
-  | { type: 'set_stance'; nation: number; stance: Stance };
+  | { type: 'set_stance'; nation: number; stance: Stance }
+  | { type: 'declare_independence'; nation: number };
 
 export interface ActionResult {
   action: Action;

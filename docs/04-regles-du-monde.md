@@ -31,10 +31,21 @@ Un tick vaut un mois. Tous les nombres ci-dessous sont dans le code (`src/engine
 - Pacte de défense : la victime d'une attaque appelle ses alliés. Refuser ou ignorer l'appel rompt le pacte et est enregistré comme une trahison.
 - Blocs = groupes de nations reliées par des pactes de défense. Sphère d'influence = petit pays lié à un partenaire au PIB cinq fois supérieur.
 
+## Tirage de la roue
+
+À la création, chaque nation tire un régime, une spécialité économique, une note militaire sur 11, des traits et un statut de départ (libre, colonie, protectorat, rivale, alliée, partenaire commerciale, paria). La note militaire est ensuite recalculée chaque année : 4 correspond à la puissance médiane du monde, et chaque doublement de puissance ajoute environ 2 points.
+
+## Colonies et protectorats
+
+- Une colonie verse 12 % de ses dépenses à sa métropole, un protectorat 3 %.
+- Aucun des deux ne peut déclarer la guerre. Une colonie ne peut pas non plus signer de pacte de défense, sanctionner, menacer ou revendiquer.
+- Qui attaque un État sous tutelle se retrouve en guerre avec sa métropole.
+- Un État sous tutelle peut proclamer son indépendance. Si la métropole est en guerre ailleurs, instable ou à peine plus forte, elle laisse faire ; sinon elle déclare la guerre.
+
 ## Guerre
 
 - Conditions : pas de trêve, pas de pacte entre les deux, cible atteignable (frontière commune, ou deux côtes et une flotte), nation pas trop épuisée.
-- Chaque mois, sur chaque front : rapport des forces × terrain du défenseur × posture × aléa. Au-delà d'un seuil, l'attaquant prend de 1 à 4 cellules, en avançant vers la capitale. Les deux camps perdent des hommes et du matériel.
+- Chaque mois, sur chaque front : rapport des forces × terrain du défenseur × posture × aléa. Au-delà d'un seuil, l'attaquant prend de 1 à 4 cellules (au plus 4 % du territoire adverse), en avançant vers la capitale. Une nation réduite à moins de 8 cellules se défend une fois et demie mieux. Les deux camps perdent des hommes et du matériel.
 - Une cellule conquise emporte sa part de population et de production. Une nation sans cellule est annexée.
 - Sans frontière commune : guerre navale, blocus, débarquement possible avec une flotte dominante.
 - Fin : paix négociée (retour aux frontières, ou chacun garde ses positions, avec ou sans réparations), capitulation par épuisement, armistice après 20 ans, extinction après 2 ans sans combat. Une trêve de 5 ans suit.
@@ -51,7 +62,7 @@ Un tick vaut un mois. Tous les nombres ci-dessous sont dans le code (`src/engine
 
 ## Actions
 
-`set_budget`, `set_tax`, `invest`, `research`, `mobilize`, `set_doctrine`, `claim_land`, `propose` (traité ou paix), `respond` (accepter, refuser, contre-proposer), `break_treaty`, `sanction`, `threaten`, `send_aid`, `press_claim`, `declare_war`, `set_stance`.
+`set_budget`, `set_tax`, `invest`, `research`, `mobilize`, `set_doctrine`, `claim_land`, `propose` (traité ou paix), `respond` (accepter, refuser, contre-proposer), `break_treaty`, `sanction`, `threaten`, `send_aid`, `press_claim`, `declare_war`, `set_stance`, `declare_independence`.
 
 Aucune action ne permet de déclarer une victoire, de créer de l'argent ou de modifier une statistique directement.
 

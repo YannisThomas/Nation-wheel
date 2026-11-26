@@ -125,6 +125,10 @@ function ingest(world: World, e: JournalEntry): void {
     case 'secession':
       remember(world, N[b], e, `${name(a)} a fait sécession de notre pays`, 0.9, [a], { [a]: -30 }, { expansion: -4 }, 'lost');
       break;
+    case 'independence':
+      remember(world, N[a], e, `Nous avons pris notre indépendance de ${name(b)}`, 0.9, [b], {}, { risk: 3 });
+      if (N[b].alive) remember(world, N[b], e, `${name(a)} s'est affranchi de notre tutelle`, 0.7, [a], { [a]: -20 });
+      break;
     case 'landing':
       remember(world, N[b], e, `${name(a)} a débarqué sur nos côtes`, 0.6, [a], { [a]: -10 }, { navy: 5 });
       break;

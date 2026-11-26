@@ -3,7 +3,7 @@
 // scalaires, commentaires), pour ne dépendre d'aucune bibliothèque.
 
 export interface AppConfig {
-  simulation: { tick_duration: 'month'; max_nations: number; nations: number; seed: number; map_width: number; map_height: number; start_year: number };
+  simulation: { tick_duration: 'month'; max_nations: number; nations: number; seed: number; roster: string; map_width: number; map_height: number; start_year: number };
   llm: { enabled: boolean; provider: 'local'; model: string; runtime: string; base_url: string; family: string; tools: boolean; timeout_ms: number; fast_model: string; national_model: string; strategic_model: string };
   decision: { llm_frequency: 'low' | 'adaptive' | 'high'; strategic_threshold: number; national_threshold: number; fast_threshold: number; max_calls_per_tick: number };
   hardware: { ram_gb: number; vram_gb: number };
@@ -11,7 +11,7 @@ export interface AppConfig {
 }
 
 export const DEFAULT_APP_CONFIG: AppConfig = {
-  simulation: { tick_duration: 'month', max_nations: 500, nations: 50, seed: 1, map_width: 160, map_height: 90, start_year: 1800 },
+  simulation: { tick_duration: 'month', max_nations: 500, nations: 50, seed: 1, roster: 'random', map_width: 160, map_height: 90, start_year: 1800 },
   // model/runtime « auto » : détection du matériel et du runtime au lancement. 0 = automatique.
   llm: { enabled: true, provider: 'local', model: 'auto', runtime: 'auto', base_url: '', family: 'qwen3.5', tools: true, timeout_ms: 60000, fast_model: '', national_model: '', strategic_model: '' },
   decision: { llm_frequency: 'adaptive', strategic_threshold: 0.8, national_threshold: 0.6, fast_threshold: 0.35, max_calls_per_tick: 0 },

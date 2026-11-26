@@ -90,6 +90,7 @@ export function proactiveOptions(world: World, n: Nation): Option[] {
   if (n.militaryResearchShare > 0.25) add('research_civil', null, 'Orienter la recherche vers le civil', { type: 'research', nation: me, militaryShare: 0.15 });
   if (n.mil.mobilization < 0.8) add('mobilize', null, 'Mobiliser davantage de troupes', { type: 'mobilize', nation: me, level: Math.min(1, n.mil.mobilization + 0.2) });
   if (n.mil.mobilization > 0) add('demobilize', null, 'Démobiliser une partie des troupes', { type: 'mobilize', nation: me, level: Math.max(0, n.mil.mobilization - 0.2) });
+  if (n.overlord >= 0) add('declare_independence', null, `Proclamer l'indépendance vis-à-vis de ${world.nations[n.overlord].name} (risque de guerre si la métropole est forte et disponible)`, { type: 'declare_independence', nation: me });
   add('expand_territory', null, 'Coloniser les terres libres voisines', { type: 'claim_land', nation: me });
 
   const wars = warsOf(world, me);

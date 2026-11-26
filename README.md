@@ -43,7 +43,7 @@ En mode autonome, les nations décident avec le moteur comportemental. Un LLM to
 
 ## Configuration
 
-Copiez `config.example.yaml` en `config.yaml`. On y règle le monde (nombre de nations, graine, taille de carte), le LLM (`model: auto`, `runtime: auto` par défaut), les seuils de décision et le serveur.
+Copiez `config.example.yaml` en `config.yaml`. On y règle le monde (nombre de nations, graine, taille de carte, `roster: season1` pour les nations du wiki), le LLM (`model: auto`, `runtime: auto` par défaut), les seuils de décision et le serveur.
 
 ## Commandes
 
@@ -57,7 +57,7 @@ npm run examples            # régénère le dossier examples/
 
 ## Ce que fait le simulateur
 
-- **Monde** : carte procédurale en cellules hexagonales (terrains, fleuves, gisements), nations tirées à la roue.
+- **Monde** : carte procédurale en cellules hexagonales (terrains, fleuves, gisements). Nations tirées à la roue comme dans Nation Wheel (régime, économie, classe militaire sur 11, traits, colonies, rivalités), ou les 103 nations de la saison 1 du wiki.
 - **Moteur** : économie, dette, démographie, IDH, stabilité, recherche, armée, commerce, sanctions, guerres avec conquête de cellules, paix, annexions, sécessions, changements de régime, événements.
 - **Agents** : background et personnalité dérivés des caractéristiques et du vécu, objectifs pondérés, mémoire hiérarchique, rancunes et gratitudes.
 - **Décision** : le LLM (ou le moteur comportemental) choisit parmi des options valides ; le moteur valide, applique et chiffre les conséquences.
@@ -66,7 +66,7 @@ npm run examples            # régénère le dossier examples/
 ## Limites connues
 
 - Aucun modèle LLM réel n'a été exécuté pendant le développement : le code LLM est testé contre un faux runtime qui imite les API d'Ollama et d'OpenAI. Le premier essai avec un vrai modèle se fera sur votre machine, `npm run setup` en donne le verdict.
-- Les règles détaillées de Nation Wheel (wiki) n'étaient pas accessibles ; seules les mécaniques visibles publiquement ont été reprises. Voir `docs/01-nation-wheel-recherche.md`.
+- En mode saison 1, les nations et leurs tirages viennent du wiki, mais la carte est générée : les voisinages ne sont pas ceux de la carte officielle. Voir `docs/01-nation-wheel-recherche.md`.
 - 500 nations fonctionnent côté moteur, mais l'interface et la vitesse n'ont été éprouvées qu'à 30–100 nations.
 
 ## Documentation

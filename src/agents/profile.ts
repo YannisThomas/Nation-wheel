@@ -5,6 +5,7 @@
 import { peekRel } from '../engine/diplomacy';
 import { clamp } from '../engine/rng';
 import { enemiesOf } from '../engine/war';
+import { TAG_FR } from '../engine/wheel';
 import { PREF_KEYS, type Government, type Ideology, type Nation, type Preferences, type World } from '../engine/types';
 
 export const GOV_FR: Record<Government, string> = {
@@ -72,7 +73,10 @@ export function background(world: World, n: Nation, s = surroundings(world, n)):
   else if (g.terrain.forest > 0.5) tags.push('forestier');
   else if (g.terrain.tundra > 0.4) tags.push('polaire');
   else if (g.terrain.plains > 0.55) tags.push('de plaines fertiles');
-  tags.push(`${GOV_FR[n.government]} ${IDEO_FR[n.ideology]}`);
+  tags.push(n.wheel.government ? `${n.wheel.government} (${IDEO_FR[n.ideology]})` : `${GOV_FR[n.government]} ${IDEO_FR[n.ideology]}`);
+  if (n.overlord >= 0) tags.push(`${n.colony ? 'colonie' : 'protectorat'} de ${world.nations[n.overlord].name}`);
+  if (n.wheel.economy) tags.push(`économie : ${n.wheel.economy}`);
+  for (const t of n.wheel.tags) tags.push(TAG_FR[t] ?? t);
   tags.push(n.tech < 25 ? 'économie agraire' : n.tech < 45 ? 'en développement' : n.tech < 65 ? 'industrialisé' : n.tech < 80 ? 'technologie avancée' : 'technologie de pointe');
   if (n.education > 75) tags.push('très haut niveau d\'éducation');
   else if (n.education < 30) tags.push('population peu instruite');
@@ -120,6 +124,12 @@ const TRAIT: Record<string, Partial<Preferences>> = {
   reformer: { welfare: 6, science: 6 },
 };
 
+const TAG_PREFS: Record<string, Partial<Preferences>> = {
+  maritime: { navy: 20, trade: 8 }, cyber: { science: 12, industry: 5 }, democratic: { diplomacy: 8, welfare: 5 }, wealthy: { trade: 12 },
+  green: { welfare: 8, industry: -5 }, pacifist: { offensive: -25, diplomacy: 10 }, expansionist: { expansion: 15, offensive: 8 },
+  nuclear: { defense: 10, risk: 5 }, religious: { risk: 5 },
+};
+
 export function preferences(world: World, n: Nation, s = surroundings(world, n)): Preferences {
   const p = Object.fromEntries(PREF_KEYS.map((k) => [k, 50])) as Preferences;
   const add = (m?: Partial<Preferences>) => { if (m) for (const k of PREF_KEYS) p[k] += m[k] ?? 0; };
@@ -143,6 +153,8 @@ export function preferences(world: World, n: Nation, s = surroundings(world, n))
     welfare: (n.stability < 40 ? 12 : 0) + (n.hdi < 0.5 ? 8 : 0),
     industry: n.tech > 30 && n.tech < 65 ? 10 : 0,
   });
+  for (const t of n.wheel.tags) add(TAG_PREFS[t]);
+  if (n.overlord >= 0) add({ offensive: -20, expansion: -15, defense: -5 });
   for (const k of PREF_KEYS) p[k] = Math.round(clamp(p[k] + n.mind.quirks[k] + n.mind.drift[k], 0, 100));
   return p;
 }

@@ -55,6 +55,7 @@ export function trySecession(world: World, parent: Nation): Nation | null {
     flag: { pattern: parent.flag.pattern, colors: [pick(world, COLORS), pick(world, COLORS), pick(world, COLORS)] },
     leader: { name: `${cap(syll(world, 2))} ${cap(syll(world, 2))}`, trait: pick(world, LEADER_TRAITS), since: world.tick },
     pop: parent.pop * share, gdp: parent.gdp * share * 0.9, debt: parent.debt * share, treasury: 0,
+    overlord: -1, colony: false, capacityFactor: 1, wheel: { ...parent.wheel, government: '', bloc: '', tags: [...parent.wheel.tags] },
     stability: 55, infamy: 0, warExhaustion: 0, overextension: 0, bloc: -1, sphereOf: -1, blockaded: false,
     mind: newMind(world),
   });

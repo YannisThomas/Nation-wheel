@@ -55,6 +55,8 @@ export function declareWar(world: World, a: number, d: number): War {
   setAtWar(world, war);
   addJournal(world, 'war_declared', [a, d], `${A.name} déclare la guerre à ${D.name}.`);
   D.mind.urgency = 1;
+  // La puissance tutélaire défend sa colonie ou son protectorat, sans avoir à être appelée.
+  if (D.overlord >= 0 && D.overlord !== a && world.nations[D.overlord].alive) joinWar(world, war, D.overlord, 'defenders');
   // Les amis de la victime se souviennent de l'agresseur ; ses alliés sont appelés.
   for (const n of world.nations) {
     if (!n.alive || n.id === a || n.id === d) continue;
@@ -183,7 +185,8 @@ export function leaveWar(world: World, war: War, id: number, deal: PeaceTerms['d
 }
 
 const strength = (n: Nation) => n.mil.power * (1 - Math.min(0.6, n.warExhaustion / 200));
-const terrainDefense = (n: Nation) => 1 + 0.5 * n.geo.terrain.mountain + 0.25 * n.geo.terrain.hills + 0.15 * n.geo.terrain.forest;
+// Acculée dans son réduit national, une nation se défend avec acharnement.
+const terrainDefense = (n: Nation) => (1 + 0.5 * n.geo.terrain.mountain + 0.25 * n.geo.terrain.hills + 0.15 * n.geo.terrain.forest) * (n.geo.cells < 8 ? 1.5 : 1);
 
 export function tickWars(world: World): void {
   const { nations, map } = world;
@@ -254,7 +257,8 @@ export function tickWars(world: World): void {
         if (!cells || !cells.length || !Y.alive) return;
         const ratio = (sx / Math.max(1e-9, sy * terrainDefense(Y) * (war.stance[Y.id] === 'defensive' ? 1.25 : 1))) * Math.exp(randNorm(world) * 0.25);
         if (ratio <= 1.15) return;
-        const k = Math.min(cells.length, Math.max(1, Math.round(Math.min(4, (ratio - 1) * 2))));
+        // Un petit territoire ne tombe pas en un mois : au plus 4 % des cellules par assaut.
+        const k = Math.min(cells.length, Math.max(1, Math.round(Math.min(4, (ratio - 1) * 2, Y.geo.cells * 0.04))));
         const cx = Y.capitalCell % map.width;
         const cy = Math.floor(Y.capitalCell / map.width);
         const d2 = (c: number) => (c % map.width - cx) ** 2 + (Math.floor(c / map.width) - cy) ** 2;

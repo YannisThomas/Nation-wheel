@@ -4,18 +4,13 @@ import { getRel, peekRel } from '../../src/engine/diplomacy';
 import { createWorld, step } from '../../src/engine/sim';
 import { warBetween, warsOf } from '../../src/engine/war';
 import type { Action, World } from '../../src/engine/types';
+import { cleanPair } from '../helpers/world';
 
 const make = (seed = 4) => createWorld({ width: 80, height: 45, nations: 20, seed, eventRate: 0 });
 const ok = (w: World, a: Action) => { const r = executeAction(w, a); expect(r.ok, `${JSON.stringify(a)} → ${r.reason}`).toBe(true); return r; };
 const ko = (w: World, a: Action) => { const r = executeAction(w, a); expect(r.ok, JSON.stringify(a)).toBe(false); return r.reason!; };
 
-/** Deux voisins, le premier nettement plus fort. */
-function neighbors(w: World): [number, number] {
-  for (const a of w.nations) for (const b of Object.keys(a.geo.neighbors).map(Number)) {
-    if (a.mil.power > w.nations[b].mil.power) return [a.id, b];
-  }
-  throw new Error('pas de voisins');
-}
+const neighbors = cleanPair;
 const proposalTo = (w: World, to: number, kind: string) => w.proposals.find((p) => p.to === to && p.kind === kind)!;
 
 describe('diplomatie', () => {
@@ -122,7 +117,7 @@ describe('guerre', () => {
     for (const answer of ['accept', 'reject'] as const) {
       const w = make();
       const [a, b] = neighbors(w);
-      const c = w.nations.find((n) => n.id !== a && n.id !== b)!.id;
+      const c = w.nations.find((n) => n.id !== a && n.id !== b && n.overlord < 0 && !warBetween(w, n.id, a))!.id;
       getRel(w, b, c).defense_pact = 0;
       ok(w, { type: 'declare_war', nation: a, target: b });
       const call = proposalTo(w, c, 'call_to_arms');

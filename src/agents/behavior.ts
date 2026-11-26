@@ -66,6 +66,12 @@ export function scoreOption(world: World, n: Nation, o: Option, sit: Situation):
     case 'mobilize': return atWar ? (n.mil.mobilization < 0.6 ? 62 - ex * 0.2 : 20) : threat > 0.6 && n.mil.mobilization < 0.2 && n.stability > 40 ? 20 + 40 * threat : 0;
     case 'demobilize': return atWar ? (ex > 90 ? 40 : 0) : 75 - 45 * threat + (n.stability < 40 ? 25 : 0) + 30 * n.mil.mobilization;
     case 'expand_territory': return 28 + 45 * P.expansion - 40 * debt - (atWar ? 25 : 0);
+    case 'declare_independence': {
+      const lord = world.nations[n.overlord];
+      const weak = warsOf(world, lord.id).length > 0 || lord.stability < 35 || lord.mil.power < 1.5 * n.mil.power;
+      const o = peekRel(world, n.id, lord.id)?.opinion ?? 0;
+      return 8 + (weak ? 45 : 0) + (o < 0 ? 20 : 0) + 20 * P.risk + (n.colony ? 8 : 0) + (n.ideology === 'nationalist' ? 12 : 0);
+    }
     case 'go_offensive': { const e = wars[0][other(sideOf(wars[0], n.id)!)][0]; return powerRatio(world, n, world.nations[e]) > 0.9 ? 55 + 20 * P.offensive : 10; }
     case 'go_defensive': { const e = wars[0][other(sideOf(wars[0], n.id)!)][0]; return powerRatio(world, n, world.nations[e]) < 0.6 || ex > 70 ? 60 : 8; }
     case 'propose_peace_white': return 12 + ex * 0.6 + (edge < -10 ? 25 : edge > 10 ? -25 : 0) - 10 * P.risk;

@@ -78,7 +78,7 @@ export interface DecisionRecord {
   effects?: Record<string, number>;
 }
 
-const WEIGHTY = /^(declare_war|propose_peace|accept_peace|reject_peace|counter_peace|accept_call_to_arms|reject_call_to_arms|break_|propose_defense_pact|accept_defense_pact|press_claim)/;
+const WEIGHTY = /^(declare_war|declare_independence|propose_peace|accept_peace|reject_peace|counter_peace|accept_call_to_arms|reject_call_to_arms|break_|propose_defense_pact|accept_defense_pact|press_claim)/;
 
 export class Director {
   stats = { decisions: 0, llm: 0, cache: 0, fallback: 0, behavior: 0 };

@@ -1,4 +1,5 @@
 import { GOAL_FR, GOV_FR, IDEO_FR, PREF_FR, TRAIT_FR } from '../../src/agents/profile';
+import { TAG_FR } from '../../src/engine/wheel';
 import type { DecisionRecord } from '../../src/agents/director';
 import type { InitMsg, NationDetail, NationInfo, StateMsg } from '../../src/host/simhost';
 import type { JournalEntry } from '../../src/engine/types';
@@ -10,7 +11,7 @@ import { DIV, MapView, nationColor, SEQ, type MapMode } from './mapview';
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector(sel) as T;
 const h = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const big = (x: number) => (x >= 1e9 ? `${(x / 1e9).toFixed(2)} Md` : x >= 1e6 ? `${(x / 1e6).toFixed(1)} M` : x >= 1e3 ? `${Math.round(x / 1e3)} k` : `${Math.round(x)}`);
-const money = (x: number) => (x >= 1000 ? `${(x / 1000).toFixed(1)} Bn$` : x >= 10 ? `${x.toFixed(0)} Md$` : `${x.toFixed(2)} Md$`);
+const money = (x: number) => (x >= 1000 ? `${Math.round(x).toLocaleString('fr-FR')} Md$` : x >= 10 ? `${x.toFixed(0)} Md$` : `${x.toFixed(2)} Md$`);
 const pct = (x: number, d = 0) => `${(x * 100).toFixed(d)} %`;
 const STATUS_FR = ['Micro-État', 'Puissance mineure', 'Puissance moyenne', 'Puissance régionale', 'Grande puissance', 'Superpuissance'];
 const STATUS_KEY: Record<string, string> = { microstate: STATUS_FR[0], minor_power: STATUS_FR[1], middle_power: STATUS_FR[2], regional_power: STATUS_FR[3], great_power: STATUS_FR[4], superpower: STATUS_FR[5] };
@@ -137,8 +138,10 @@ function sheetBody(d: NationDetail): string {
     case 'decisions': return '<div id="nation-decisions"><p class="empty">Chargement…</p></div>';
     default: return `
       <div class="chips">${d.background.map((t) => chip(t)).join('')}</div>
+      ${d.overlord >= 0 ? `<p class="alert">${d.colony ? 'Colonie' : 'Protectorat'} de ${link(d.overlord)} : verse un tribut et ne peut pas déclarer la guerre.</p>` : ''}
       ${d.wars.length ? `<p class="alert">⚔ En guerre : ${d.wars.map((w) => h(w.name)).join(', ')}</p>` : ''}
       <div class="grid">${stat('Population', big(d.pop), `${(d.popGrowth * 100).toFixed(1)} %/an`)}${stat('PIB', money(d.gdp), `${(d.gdpGrowth * 100).toFixed(1)} %/an`)}${stat('PIB / habitant', `${big(gdppc)} $`)}${stat('Stabilité', `${Math.round(d.stability)}`, 'sur 100')}${stat('IDH', d.hdi.toFixed(2))}${stat('Technologie', `${Math.round(d.tech)}`, 'sur 120')}${stat('Superficie', `${big(d.geo.areaKm2)} km²`, pct(d.geo.cells / Math.max(1, st!.rows.reduce((s, r) => s + r[5], 0)), 1) + ' des terres')}${stat('Part du PIB mondial', pct(d.gdp / Math.max(1e-6, world.gdp), 1))}${stat('Urbanisation', pct(d.urbanization / 100))}${stat('Qualité de vie', `${Math.round(d.qualityOfLife)}`, 'sur 100')}</div>
+      ${section('Tirage de la roue', `<div class="grid">${stat('Régime', h(d.wheel.government || GOV_FR[d.government]))}${stat('Économie', h(d.wheel.economy || '—'))}${stat('Classe militaire', h(d.wheel.militaryClass), `${d.wheel.militaryRating} / 11`)}${stat('Traits', d.wheel.tags.length ? d.wheel.tags.map((t) => h(TAG_FR[t] ?? t)).join(', ') : '—')}</div>`)}
       ${section('Population', '<canvas class="chart" data-series="0"></canvas>')}
       ${section('Identité', `<p>Capitale <b>${h(info.capitalName)}</b> · culture ${h(d.culture)} · langue ${h(d.language)}<br>Dirigeant <b>${h(d.leader.name)}</b> (${h(TRAIT_FR[d.leader.trait])}), au pouvoir depuis ${yearOf(d.leader.since)}<br>Fondée en ${yearOf(d.foundedTick)}</p>`)}
       ${section('Géographie', `<p>${d.geo.landlocked ? 'Sans accès à la mer' : `${big(d.geo.coastlineKm)} km de côtes`} · ${Object.keys(d.geo.neighbors).length} voisin(s) · ${d.geo.parts > 1 ? `${d.geo.parts} territoires séparés` : 'territoire d\'un seul tenant'} · position stratégique ${d.geo.strategic}/100</p><div class="chips">${Object.entries(d.geo.terrain).filter(([k, v]) => k !== 'ocean' && v > 0.04).sort((a, b) => b[1] - a[1]).map(([k, v]) => chip(`${TERRAIN_FR[k]} ${pct(v)}`)).join('')}</div>`)}`;
@@ -152,7 +155,7 @@ async function renderSheet(): Promise<void> {
   const info = infos[d.id];
   el.hidden = false;
   el.dataset.size = ui.sheetSize;
-  $('#sheet-head').innerHTML = `${flag(info.flag)}<div><b>${h(info.name)}${d.alive ? '' : ' (disparue)'}</b><small>${h(STATUS_KEY[d.status])} · ${h(GOV_FR[d.government])} ${h(IDEO_FR[d.ideology])}</small></div><button data-act="close-sheet" aria-label="Fermer">✕</button>`;
+  $('#sheet-head').innerHTML = `${flag(info.flag)}<div><b>${h(info.name)}${d.alive ? '' : ' (disparue)'}</b><small>${h(STATUS_KEY[d.status])} · ${h(d.wheel.government || GOV_FR[d.government])}${d.wheel.government ? '' : ` ${h(IDEO_FR[d.ideology])}`}</small></div><button data-act="close-sheet" aria-label="Fermer">✕</button>`;
   $('#sheet-tabs').innerHTML = [['apercu', 'Aperçu'], ['economie', 'Économie'], ['armee', 'Armée'], ['diplomatie', 'Diplomatie'], ['esprit', 'Esprit'], ['decisions', 'Décisions']].map(([k, l]) => `<button data-act="tab" data-id="${k}" class="${ui.sheetTab === k ? 'on' : ''}">${l}</button>`).join('');
   const body = $('#sheet-body');
   if (ui.decision && ui.sheetTab === 'decisions') { body.innerHTML = decisionDetail(ui.decision); return; }
@@ -267,6 +270,7 @@ function settingsHtml(): string {
   const c = init!.config;
   const l = st!.llm;
   return `${section('Partie', `<form data-form="new" class="form">
+      <label>Monde<select name="roster"><option value="random">Nations tirées à la roue</option><option value="season1" ${c.roster === 'season1' ? 'selected' : ''}>Saison 1 de Nation Wheel (103 nations du wiki)</option></select></label>
       <label>Nombre de nations<input name="nations" type="number" inputmode="numeric" min="2" max="500" value="${c.nations}"></label>
       <label>Graine du monde<input name="seed" type="number" inputmode="numeric" value="${c.seed}"></label>
       <label>Taille de la carte<select name="size"><option value="80x45">Petite</option><option value="120x68" ${c.width === 120 ? 'selected' : ''}>Moyenne</option><option value="160x90" ${c.width === 160 ? 'selected' : ''}>Grande</option><option value="240x135" ${c.width === 240 ? 'selected' : ''}>Très grande</option></select></label>
@@ -467,7 +471,7 @@ document.addEventListener('submit', async (ev) => {
   const f = Object.fromEntries(new FormData(form)) as Record<string, string>;
   if (form.dataset.form === 'new') {
     const [width, height] = f.size.split('x').map(Number);
-    await run(client.cmd({ type: 'new', config: { nations: Number(f.nations), seed: Number(f.seed), width, height } }), 'Nouveau monde créé.');
+    await run(client.cmd({ type: 'new', config: { nations: Number(f.nations), seed: Number(f.seed), width, height, roster: f.roster } }), 'Nouveau monde créé.');
     openPanel(null);
   } else if (form.dataset.form === 'save') { await run(client.save(f.name.trim()), 'Partie sauvegardée.'); renderPanel(true); }
   else if (form.dataset.form === 'llm') await run(client.cmd({ type: 'llm_connect', ...f }), 'LLM connecté.');

@@ -2,6 +2,8 @@ import { neighborTable, OCEAN, recomputeGeo, carryingCapacity } from './map';
 import { clamp, pick, rand, randInt, randNorm, randRange, spin, type HasRng } from './rng';
 import { potentialGdp, militaryPower } from './systems';
 import { newMind } from './mind';
+import { SEASON1 } from '../data/season1';
+import { applyRoster, spinWheel } from './wheel';
 import { getRel } from './diplomacy';
 import {
   GOVERNMENTS, IDEOLOGIES, LEADER_TRAITS, TERRAINS,
@@ -126,7 +128,8 @@ export function generateNations(world: World): void {
   const nb = neighborTable(map.width, map.height);
   const land: number[] = [];
   for (let i = 0; i < map.terrain.length; i++) if (map.terrain[i] !== OCEAN) land.push(i);
-  const count = Math.min(config.nations, Math.floor(land.length / 3));
+  const roster = config.roster === 'season1' ? SEASON1 : null;
+  const count = Math.min(roster ? roster.length : config.nations, Math.floor(land.length / 3));
   const dist2 = (a: number, b: number) => {
     const dx = (a % map.width) - (b % map.width);
     const dy = Math.floor(a / map.width) - Math.floor(b / map.width);
@@ -155,14 +158,19 @@ export function generateNations(world: World): void {
 
   // Croissance simultanée (Dijkstra multi-sources) bornée par un rayon tiré à la roue.
   const baseRadius = Math.sqrt(land.length / capitals.length / Math.PI) * 1.25;
-  const radius = capitals.map(() => baseRadius * spin(world, SIZE_WHEEL));
+  const radius = capitals.map(() => (roster ? Infinity : baseRadius * spin(world, SIZE_WHEEL)));
+  // Avec les nations de la saison 1, la superficie tirée fixe le nombre de cellules (ramené à l'échelle de la carte).
+  const rosterArea = roster ? roster.slice(0, capitals.length).reduce((s, e) => s + (e.area ?? 3e5), 0) : 0;
+  const limit = capitals.map((_, i) => (roster ? Math.max(1, Math.round(((roster[i].area ?? 3e5) / rosterArea) * land.length * 0.9)) : Infinity));
+  const owned = capitals.map(() => 0);
   const cost = new Float64Array(map.terrain.length).fill(Infinity);
   const heap = new Heap();
   capitals.forEach((c, id) => { cost[c] = 0; heap.push([0, c, id]); });
   while (heap.size) {
     const [d, c, id] = heap.pop();
-    if (d > cost[c] || map.owner[c] >= 0) continue;
+    if (d > cost[c] || map.owner[c] >= 0 || owned[id] >= limit[id]) continue;
     map.owner[c] = id;
+    owned[id]++;
     for (let k = 0; k < 6; k++) {
       const j = nb[c * 6 + k];
       if (j < 0 || map.owner[j] >= 0) continue;
@@ -214,7 +222,8 @@ export function generateNations(world: World): void {
       },
       geo: undefined as never, // rempli par recomputeGeo juste en dessous
       infamy: 0, tradeBonus: 0, exports: 0, imports: 0, warExhaustion: 0, overextension: 0,
-      bloc: -1, sphereOf: -1, blockaded: false,
+      bloc: -1, sphereOf: -1, blockaded: false, overlord: -1, colony: false, capacityFactor: 1,
+      wheel: { government: '', economy: '', militaryClass: '', militaryRating: 0, tags: [], bloc: '' },
       mind: newMind(world),
     };
   });
@@ -245,6 +254,12 @@ export function generateNations(world: World): void {
   }
   // Les voisins se connaissent dès le départ.
   for (const n of world.nations) for (const o of Object.keys(n.geo.neighbors)) getRel(world, n.id, +o);
+  if (roster) applyRoster(world, roster); else spinWheel(world);
+  // Une population tirée au-delà de ce que la terre nourrit vit d'importations.
+  for (const n of world.nations) {
+    const cap = carryingCapacity(n, map) * (1 + Math.min(2, (n.gdp * 1e9) / Math.max(1, n.pop) / 15000));
+    if (n.pop > cap * 0.8) n.capacityFactor = (n.pop / Math.max(1, cap)) * 1.25;
+  }
 }
 
 export { TERRAINS };

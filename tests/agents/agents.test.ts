@@ -9,6 +9,7 @@ import { executeAction, validateAction } from '../../src/engine/actions';
 import { exactHash } from '../../src/engine/hash';
 import { createWorld, loadWorld, saveWorld, step } from '../../src/engine/sim';
 import type { World } from '../../src/engine/types';
+import { cleanPair } from '../helpers/world';
 
 const make = (seed = 6, nations = 20) => createWorld({ width: 80, height: 45, nations, seed });
 const run = (w: World, d: Director, ticks: number) => { for (let i = 0; i < ticks; i++) { const { actions } = d.decideSync(w); d.attachResults(step(w, actions)); } };
@@ -24,7 +25,7 @@ describe('personnalité', () => {
 
   it('le vécu modifie les préférences : une invasion renforce la défense', () => {
     const w = make();
-    const [a, b] = (() => { for (const n of w.nations) for (const o of Object.keys(n.geo.neighbors)) return [n.id, +o]; throw 0; })();
+    const [a, b] = cleanPair(w);
     const before = preferences(w, w.nations[b]);
     expect(executeAction(w, { type: 'declare_war', nation: a, target: b }).ok).toBe(true);
     ingestJournal(w);
@@ -63,11 +64,11 @@ describe('options et moteur comportemental', () => {
 
   it('une nation en guerre réagit autrement qu\'en paix', () => {
     const w = make();
-    const n = w.nations[0];
+    const [foe, me] = cleanPair(w);
+    const n = w.nations[me];
     const sit = () => { const around = surroundings(w, n); return { prefs: preferences(w, n, around), around }; };
     const peace = rank(w, n, proactiveOptions(w, n), sit())[0].option.id;
-    const foe = +Object.keys(n.geo.neighbors)[0];
-    executeAction(w, { type: 'declare_war', nation: foe, target: n.id });
+    expect(executeAction(w, { type: 'declare_war', nation: foe, target: n.id }).ok).toBe(true);
     const top = rank(w, n, proactiveOptions(w, n), sit()).slice(0, 3).map((r) => r.option.id);
     expect(top.some((id) => /mobilize|budget_military|invest_military|propose_peace|go_offensive/.test(id)), `${peace} → ${top}`).toBe(true);
   });

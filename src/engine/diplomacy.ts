@@ -68,7 +68,8 @@ export function baseline(world: World, a: Nation, b: Nation, rel: Relation): num
     - (neighbors ? 6 : 0) - 0.4 * (a.infamy + b.infamy)
     + (rel.trade >= 0 ? 10 : 0) + (rel.non_aggression >= 0 ? 10 : 0) + (rel.defense_pact >= 0 ? 25 : 0)
     - 30 * (+rel.sanctions[0] + +rel.sanctions[1]) - 20 * (+rel.claims[0] + +rel.claims[1])
-    + (a.leader.trait === 'diplomat' ? 5 : 0) + (b.leader.trait === 'diplomat' ? 5 : 0);
+    + (a.leader.trait === 'diplomat' ? 5 : 0) + (b.leader.trait === 'diplomat' ? 5 : 0)
+    + (a.overlord === b.id || b.overlord === a.id ? 10 : 0);
   if (neighbors) {
     const ratio = Math.max(a.mil.power, b.mil.power) / Math.max(1, Math.min(a.mil.power, b.mil.power));
     if (ratio > 3) v -= 8; // un voisin écrasant inquiète
@@ -198,4 +199,5 @@ export function updateBlocs(world: World): void {
     const p = nations[patron];
     if (p.gdp > 5 * c.gdp && (c.sphereOf < 0 || p.gdp > nations[c.sphereOf].gdp)) c.sphereOf = patron;
   }
+  for (const n of nations) if (n.alive && n.overlord >= 0) n.sphereOf = n.overlord;
 }

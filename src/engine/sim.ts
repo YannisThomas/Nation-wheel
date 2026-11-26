@@ -2,12 +2,15 @@ import { executeAction } from './actions';
 import { tickDiplomacy, updateBlocs } from './diplomacy';
 import { generateMap, recomputeGeo } from './map';
 import { tickWars } from './war';
+import { updateRatings } from './wheel';
 import { generateNations } from './nationgen';
 import { computeHdi, randomEvents, tickNation, updateStatuses } from './systems';
 import { DEFAULT_CONFIG, type Action, type ActionResult, type SimConfig, type World } from './types';
 
 export function createWorld(config: Partial<SimConfig> = {}): World {
   const cfg = { ...DEFAULT_CONFIG, ...config };
+  // Les 103 nations de la saison 1 demandent une carte assez grande.
+  if (cfg.roster === 'season1' && cfg.width * cfg.height < 240 * 135) { cfg.width = 240; cfg.height = 135; }
   const world: World = {
     version: 1, config: cfg, tick: 0, rngState: cfg.seed | 0,
     map: undefined as never, nations: [], journal: [], nextJournalId: 1, geoDirty: false, techFrontier: 0,
@@ -39,7 +42,7 @@ export function step(world: World, actions: Action[] = []): ActionResult[] {
   for (const n of world.nations) if (n.alive && n.tech > frontier) frontier = n.tech;
   world.techFrontier = frontier;
   world.tick++;
-  if (world.tick % 12 === 0) updateStatuses(world);
+  if (world.tick % 12 === 0) { updateStatuses(world); updateRatings(world); }
   return results;
 }
 

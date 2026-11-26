@@ -53,8 +53,20 @@ export function tickNation(world: World, n: Nation): void {
   const interestRate = Math.min(0.25, 0.02 + Math.max(0, debtRatio - 0.6) * 0.05);
   const interest = (n.debt * interestRate) / 12;
   // Les intérêts passent en premier ; l'État garde au moins 30 % de ses recettes pour fonctionner.
-  const spend = Math.max(revenue * 0.3, (revenue - interest) * 0.97);
+  let spend = Math.max(revenue * 0.3, (revenue - interest) * 0.97);
   n.treasury += revenue - interest - spend;
+  // Tribut versé à la puissance tutélaire.
+  if (n.overlord >= 0) {
+    const lord = world.nations[n.overlord];
+    if (!lord.alive) {
+      n.overlord = -1; n.colony = false;
+      addJournal(world, 'independence', [n.id, lord.id], `${n.name} retrouve son indépendance après la disparition de ${lord.name}.`);
+    } else {
+      const tribute = spend * (n.colony ? 0.12 : 0.03);
+      spend -= tribute;
+      lord.treasury += tribute;
+    }
+  }
   n.revenue = revenue * 12;
   n.expenses = (spend + interest) * 12;
   if (n.treasury < 0) { n.debt -= n.treasury; n.treasury = 0; }
@@ -151,6 +163,7 @@ export function tickNation(world: World, n: Nation): void {
   if (n.stability < 15 && rand(world) < 0.015) {
     const old = n.government;
     n.government = pick(world, GOVERNMENTS.filter((g) => g !== old));
+    n.wheel.government = '';
     n.leader = { ...n.leader, trait: pick(world, LEADER_TRAITS), since: world.tick, name: n.leader.name.split(' ').reverse().join(' ') };
     n.stability = Math.max(45, clamp(n.stability + 25, 0, 100));
     addJournal(world, 'regime_change', [n.id], `Le régime de ${n.name} s'effondre : ${old} → ${n.government}.`);

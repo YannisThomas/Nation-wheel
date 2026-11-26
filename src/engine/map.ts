@@ -262,5 +262,5 @@ export function recomputeGeo(world: World): void {
 
 /** Capacité de charge alimentaire (habitants), avant commerce. */
 export function carryingCapacity(nation: Nation, map: WorldMap): number {
-  return nation.geo.fertility * map.cellAreaKm2 * 40 * (1 + nation.tech / 30);
+  return nation.geo.fertility * map.cellAreaKm2 * 40 * (1 + nation.tech / 30) * nation.capacityFactor;
 }
