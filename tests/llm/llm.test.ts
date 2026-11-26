@@ -156,7 +156,8 @@ describe('matériel', () => {
   it('recommande un modèle adapté à chaque palier', () => {
     expect(recommendModels(hw(8, 0))).toMatchObject({ tier: 'weak', fast: 'qwen3.5:2b', strategic: 'qwen3.5:2b' });
     expect(recommendModels(hw(16, 0))).toMatchObject({ tier: 'medium', national: 'qwen3.5:4b', strategic: 'qwen3.5:4b' });
-    expect(recommendModels(hw(16, 8))).toMatchObject({ tier: 'medium', strategic: 'qwen3.5:9b' });
+    expect(recommendModels(hw(16, 8))).toMatchObject({ tier: 'medium', strategic: 'qwen3.5:4b' });
+    expect(recommendModels(hw(16, 10))).toMatchObject({ tier: 'medium', fast: 'qwen3.5:4b', strategic: 'qwen3.5:9b' });
     expect(recommendModels(hw(32, 16))).toMatchObject({ tier: 'strong', national: 'qwen3.5:9b' });
     expect(recommendModels(hw(64, 24))).toMatchObject({ tier: 'very_strong', strategic: 'qwen3.5:27b' });
     expect(recommendModels(hw(8, 0), 'gemma4').fast).toBe('gemma4:e2b');

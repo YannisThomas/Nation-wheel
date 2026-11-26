@@ -2,7 +2,7 @@
 // Détecte le matériel, recommande un modèle, propose de le télécharger via
 // Ollama (source officielle), puis vérifie qu'il rend une décision valide.
 
-import { createInterface } from 'node:readline/promises';
+import { createInterface } from 'node:readline';
 import { loadConfig } from '../src/server/index';
 import { selfTest } from '../src/llm/chooser';
 import { detectHardware, recommendModels, resolveModels } from '../src/llm/hardware';
@@ -27,10 +27,22 @@ const installed = await provider.listModels();
 let resolved = resolveModels(plan, installed);
 
 if (resolved.missing.length && provider.pull) {
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  // Les réponses sont lues par un itérateur de lignes : il met en tampon ce qui
+  // arrive pendant un téléchargement et survit à une entrée fermée (pipe, CI),
+  // là où rl.question() levait ERR_USE_AFTER_CLOSE. « --yes » accepte tout.
+  const yes = process.argv.includes('--yes') || process.argv.includes('-y');
+  const rl = createInterface({ input: process.stdin });
+  const lines = rl[Symbol.asyncIterator]();
+  const ask = async (q: string): Promise<string> => {
+    process.stdout.write(q);
+    if (yes) { console.log('o'); return 'o'; }
+    const next = await lines.next();
+    if (next.done) { console.log('(entrée fermée : non)'); return ''; }
+    return next.value.trim().toLowerCase();
+  };
   for (const model of resolved.missing) {
-    const answer = (await rl.question(`Télécharger ${model} depuis la bibliothèque Ollama ? [o/N] `)).trim().toLowerCase();
-    if (answer !== 'o' && answer !== 'oui' && answer !== 'y') continue;
+    const answer = await ask(`Télécharger ${model} depuis la bibliothèque Ollama ? [o/N] `);
+    if (answer !== 'o' && answer !== 'oui' && answer !== 'y' && answer !== 'yes') continue;
     console.log(`Téléchargement de ${model}… (plusieurs minutes selon la connexion)`);
     try { await provider.pull(model); console.log('Terminé.'); } catch (e) { console.log(`Échec : ${e instanceof Error ? e.message : e}`); }
   }
@@ -44,7 +56,9 @@ const available = await provider.listModels();
 if (!available.length) { console.log('Aucun modèle disponible : le simulateur utilisera le moteur comportemental.'); process.exit(0); }
 for (const model of [...new Set([resolved.fast, resolved.national, resolved.strategic])]) {
   process.stdout.write(`Vérification de ${model}… `);
-  const t = await selfTest(provider, model);
+  let t = await selfTest(provider, model);
+  // Le tout premier chargement d'un modèle fraîchement téléchargé peut dépasser le délai : second essai, modèle chaud.
+  if (!t.ok && t.error === 'délai dépassé') { process.stdout.write('premier chargement lent, nouvel essai… '); t = await selfTest(provider, model); }
   console.log(t.ok ? `décision JSON valide en ${t.ms} ms` : `échec (${t.error})`);
 }
 console.log('\nLancez le simulateur avec « npm start ».');

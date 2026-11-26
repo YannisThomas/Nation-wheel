@@ -48,8 +48,10 @@ export class LlmChooser implements Chooser {
           // Certains modèles répondent directement en JSON plutôt que d'appeler propose_action.
           try { return { ...validateDecision(extractJson(res.content), req.schema), model, tools: used }; } catch { break; }
         }
-        messages.push({ role: 'assistant', content: res.content, toolCalls: res.toolCalls });
-        for (const call of res.toolCalls.slice(0, 3)) {
+        // Seuls les appels exécutés sont rejoués : un appel sans réponse désoriente le modèle.
+        const calls = res.toolCalls.slice(0, 3);
+        messages.push({ role: 'assistant', content: res.content, toolCalls: calls });
+        for (const call of calls) {
           used.push(call.name);
           messages.push({ role: 'tool', toolCallId: call.id, toolName: call.name, content: execTool(world, task.nation, call.name, call.arguments) });
         }

@@ -41,7 +41,9 @@ export function recommendModels(hw: Hardware, family: 'qwen3.5' | 'gemma4' = 'qw
   switch (tier) {
     case 'weak': return { tier, family, fast: 'qwen3.5:2b', national: 'qwen3.5:2b', strategic: 'qwen3.5:2b', callsPerTick: 1, note: 'Machine modeste : un seul petit modèle, le moteur comportemental prend les décisions mineures.' };
     case 'medium': {
-      const strategic = hw.vramGb >= 8 ? 'qwen3.5:9b' : 'qwen3.5:4b';
+      // 4B (≈ 3,1 Go) + 9B (≈ 5,6 Go) ne tiennent pas ensemble dans 8 Go de VRAM : le runtime
+      // rechargerait un modèle à chaque alternance (5 à 6 s mesurées). Un seul modèle sous 10 Go.
+      const strategic = hw.vramGb >= 10 ? 'qwen3.5:9b' : 'qwen3.5:4b';
       return { tier, family, fast: 'qwen3.5:4b', national: 'qwen3.5:4b', strategic, callsPerTick: 2, note: 'Machine courante : un modèle 4B pour presque tout.' };
     }
     case 'strong': return { tier, family, fast: 'qwen3.5:4b', national: 'qwen3.5:9b', strategic: 'qwen3.5:9b', callsPerTick: 4, note: 'Bonne carte graphique : 9B pour la diplomatie et la stratégie.' };
