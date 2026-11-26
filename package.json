@@ -12,7 +12,8 @@
     "serve": "tsx src/server/index.ts",
     "setup": "tsx scripts/setup.ts",
     "build": "node scripts/build-web.mjs",
-    "examples": "tsx scripts/make-examples.ts"
+    "examples": "tsx scripts/make-examples.ts",
+    "probe": "tsx scripts/llm-probe.ts"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

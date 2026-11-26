@@ -7,8 +7,8 @@
 | 3 | Moteur de simulation | Fait |
 | 4 | Nations et background | Fait |
 | 5 | Personnalité et objectifs | Fait |
-| 6 | LLM local : fournisseurs, détection matériel et runtime, auto-test, repli | Fait, testé contre un faux runtime seulement |
-| 7 | Tool calling | Fait, même réserve |
+| 6 | LLM local : fournisseurs, détection matériel et runtime, auto-test, repli | Fait ; essayé avec un vrai modèle sur une machine (Ollama, Qwen3.5 4B et 9B) |
+| 7 | Tool calling | Fait ; même essai |
 | 8 | Mémoire hiérarchique | Fait |
 | 9 | Diplomatie | Fait |
 | 10 | Économie et commerce | Fait ; les secteurs économiques détaillés ne sont pas modélisés |
@@ -21,7 +21,7 @@
 
 ## Reste à faire
 
-- Essai avec un vrai modèle local et ajustement des prompts selon le résultat.
+- Mesurer la fiabilité du vrai modèle sur une partie entière (taux de réponses valides, part de replis) et ajuster les prompts.
 - LLM dans le navigateur du téléphone (WebLLM) pour un mode autonome complet.
 - Vitesse avec 300 à 500 nations : le calcul des options par nation est le point lent.
 - Carte officielle de la saison 1 (aujourd'hui les nations du wiki sont placées sur une carte générée).

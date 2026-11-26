@@ -50,7 +50,8 @@ Copiez `config.example.yaml` en `config.yaml`. On y règle le monde (nombre de n
 ```bash
 npm test                    # tous les tests
 npm run sim -- 2400 50 1    # partie de 200 ans en ligne de commande (ticks, nations, graine)
-npm run setup               # installation guidée du LLM
+npm run setup               # installation guidée du LLM (ajoutez -- --yes pour tout accepter)
+npm run probe               # essai du vrai modèle sur quelques décisions, avec mesures
 npm run build               # reconstruit l'interface dans web/dist
 npm run examples            # régénère le dossier examples/
 ```
@@ -67,7 +68,7 @@ npm run examples            # régénère le dossier examples/
 
 ## Limites connues
 
-- Aucun modèle LLM réel n'a été exécuté pendant le développement : le code LLM est testé contre un faux runtime qui imite les API d'Ollama et d'OpenAI. Le premier essai avec un vrai modèle se fera sur votre machine, `npm run setup` en donne le verdict.
+- Le LLM réel a été essayé sur une seule machine (Ollama, Qwen3.5 4B et 9B), ce qui a conduit à trois corrections : contexte porté à 8 192 jetons, un seul modèle sous 10 Go de VRAM, rejeu des seuls appels d'outils exécutés. Il n'y a pas encore de mesure de fiabilité sur une partie entière ; les tests automatiques, eux, utilisent un faux runtime. `npm run probe` fait décider quelques nations par le vrai modèle et affiche les temps.
 - En mode saison 1, les nations et leurs tirages viennent du wiki, mais la carte est générée : les voisinages ne sont pas ceux de la carte officielle. Voir `docs/01-nation-wheel-recherche.md`.
 - 500 nations fonctionnent côté moteur, mais l'interface et la vitesse n'ont été éprouvées qu'à 30–100 nations.
 
