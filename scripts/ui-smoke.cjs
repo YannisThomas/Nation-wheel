@@ -21,6 +21,15 @@ async function scenario(browser, label, device, target) {
 
   await page.goto(target);
   await page.waitForFunction(() => document.querySelector('#date').textContent !== '…', null, { timeout: 15000 });
+  // Avant le premier mois, le tirage des roues couvre l'écran : on le regarde tourner, puis on le referme.
+  if (await page.isVisible('#draw')) {
+    await page.waitForSelector('#draw .draw-wheel.landed', { timeout: 10000 });
+    await shot('roues');
+    if (await page.evaluate(() => { const m = document.querySelector('.draw-main'); return m.scrollHeight > m.clientHeight + 1; })) fail(`${label} : le tirage des roues ne tient pas dans l'écran`);
+    await page.click('[data-draw="recap"]');
+    await shot('roues-recapitulatif');
+    await page.click('[data-draw="close"]');
+  }
   await shot('carte');
   for (let i = 0; i < 4; i++) await page.click('#speed');
   await page.click('#play');

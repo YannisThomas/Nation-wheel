@@ -64,6 +64,7 @@ npm run examples            # régénère le dossier examples/
 - **Moteur** : économie, dette, démographie, IDH, stabilité, recherche, armée, commerce, sanctions, guerres avec conquête de cellules, paix, annexions, sécessions, changements de régime, événements.
 - **Agents** : background et personnalité dérivés des caractéristiques et du vécu, objectifs pondérés, mémoire hiérarchique, rancunes et gratitudes.
 - **Décision** : le LLM (ou le moteur comportemental) choisit parmi des options valides ; le moteur valide, applique et chiffre les conséquences.
+- **Tirage des roues** : avant le premier mois, chaque nation voit ses roues tourner à l'écran (régime, économie, classe militaire, traits, statut de départ) et s'arrêter sur ce que le moteur a tiré. On peut accélérer, passer une nation ou tout révéler ; le menu Plus permet de le revoir.
 - **Interface** : carte tactile, fiche de nation, classements, diplomatie, journal, chronologie de la carte, graphiques, sauvegardes, mode administrateur, panneau des décisions.
 
 ## Limites connues

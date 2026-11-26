@@ -8,7 +8,7 @@ import { getRel } from './diplomacy';
 import { clamp, pick, rand, spin, type HasRng } from './rng';
 import { militaryPower, potentialGdp } from './systems';
 import { declareWar, warBetween } from './war';
-import type { Government, Ideology, Nation, World } from './types';
+import type { Government, Ideology, Nation, StartKind, World } from './types';
 
 export const TAG_FR: Record<string, string> = {
   maritime: 'Maritime', cyber: 'Cybernétique', democratic: 'Démocratique', wealthy: 'Fortuné', green: 'Écologique',
@@ -31,6 +31,12 @@ const ECONOMIES = ['Finance', 'Pétrole et gaz', 'Technologie', 'Agriculture', '
 // Répartition des notes militaires observée sur les nations de la saison 1.
 const RATING_WHEEL: [number, number][] = [[0, 6], [2, 11], [3, 14], [4, 12], [5, 10], [6, 8], [7, 16], [8, 6], [9, 8], [10, 8], [11, 4]];
 const TAG_WHEEL = ['maritime', 'cyber', 'democratic', 'wealthy', 'green', 'pacifist', 'expansionist', 'nuclear', 'religious'];
+// Statut de départ : la plupart des nations naissent libres et sans histoire.
+const START_WHEEL: [StartKind, number][] = [['none', 54], ['colony', 6], ['protectorate', 4], ['rival', 10], ['tension', 6], ['allied', 10], ['trade', 8], ['pariah', 2]];
+export const START_FR: Record<StartKind, string> = {
+  none: 'Libre', colony: 'Colonie', protectorate: 'Protectorat', overlord: 'Protectrice', rival: 'Rivalité', tension: 'Tensions',
+  allied: 'Alliance', trade: 'Commerce', pariah: 'Paria', war: 'Guerre',
+};
 
 /** Classe militaire lisible, façon Nation Wheel. */
 export function militaryClass(n: Nation, rating: number): string {
@@ -95,19 +101,23 @@ export function spinWheel(world: World): void {
     ratings[n.id] = spin(world, RATING_WHEEL);
   }
   armToRating(world, ratings);
-  // Statut de départ : la plupart des nations naissent libres et sans histoire.
   for (const n of world.nations) {
     const neighbors = Object.keys(n.geo.neighbors).map(Number);
-    if (!neighbors.length) continue;
+    if (!neighbors.length) { n.wheel.start = { kind: 'none', target: -1, applied: true }; continue; }
     const o = world.nations[pick(world, neighbors)];
     const rel = getRel(world, n.id, o.id);
-    const kind = spin(world, [['none', 54], ['colony', 6], ['protectorate', 4], ['rival', 10], ['tension', 6], ['allied', 10], ['trade', 8], ['pariah', 2]] as const);
-    if ((kind === 'colony' || kind === 'protectorate') && o.mil.power > 1.5 * n.mil.power && o.overlord < 0 && n.overlord < 0) setVassal(world, n, o, kind === 'colony');
+    const kind = spin(world, START_WHEEL);
+    let applied = true;
+    if (kind === 'colony' || kind === 'protectorate') {
+      applied = o.mil.power > 1.5 * n.mil.power && o.overlord < 0 && n.overlord < 0;
+      if (applied) { setVassal(world, n, o, kind === 'colony'); applied = n.overlord === o.id; }
+    }
     else if (kind === 'rival') { rel.opinion = -55; rel.claims[n.id < o.id ? 0 : 1] = true; }
     else if (kind === 'tension') rel.opinion = -35;
-    else if (kind === 'allied' && n.overlord < 0 && o.overlord < 0) { rel.defense_pact = 0; rel.opinion = Math.max(rel.opinion, 55); }
+    else if (kind === 'allied') { applied = n.overlord < 0 && o.overlord < 0; if (applied) { rel.defense_pact = 0; rel.opinion = Math.max(rel.opinion, 55); } }
     else if (kind === 'trade') { rel.trade = 0; rel.opinion = Math.max(rel.opinion, 25); }
     else if (kind === 'pariah') n.infamy = 60;
+    n.wheel.start = { kind, target: kind === 'none' || kind === 'pariah' ? -1 : o.id, applied };
   }
   updateRatings(world);
 }
@@ -177,6 +187,10 @@ export function applyRoster(world: World, roster: RosterEntry[]): void {
     const s = e.status;
     const other = byName(/\(([^)]+)\)/.exec(s)?.[1] ?? /(?:of|-)\s+(.+)$/.exec(s)?.[1] ?? '');
     if (/pariah/i.test(s) || /hated/i.test(e.bloc)) n.infamy = 70;
+    const kind: StartKind = /^colony/i.test(s) ? 'colony' : /^prot\. of/i.test(s) ? 'protectorate' : /^prot\. \(/i.test(s) ? 'overlord' : /^(allied|defense pact)/i.test(s) ? 'allied'
+      : /^trade|^influence/i.test(s) ? 'trade' : /^(hostile|rival)/i.test(s) ? 'rival' : /^(tension|freeze|former war)/i.test(s) ? 'tension' : /^war/i.test(s) ? 'war' : /pariah/i.test(s) ? 'pariah' : 'none';
+    const found = !!other && other.id !== n.id;
+    n.wheel.start = { kind, target: found && kind !== 'none' && kind !== 'pariah' ? other!.id : -1, applied: kind === 'none' || kind === 'pariah' || found };
     if (other && other.id !== n.id) {
       const rel = getRel(world, n.id, other.id);
       if (/^colony/i.test(s)) setVassal(world, n, other, true);
@@ -200,4 +214,64 @@ export function applyRoster(world: World, roster: RosterEntry[]): void {
   });
   for (const n of world.nations) n.infamy = Math.min(n.infamy, 70);
   // Les notes tirées restent affichées telles quelles au départ ; elles seront recalculées chaque année.
+}
+
+// ---- Tirages à montrer avant la partie ----
+
+export interface WheelDraw {
+  id: number;
+  government: string;
+  economy: string;
+  /** Note militaire sur 11 et nom de la classe. */
+  rating: number;
+  militaryClass: string;
+  /** Traits, en français. */
+  tags: string[];
+  /** Statut de départ : segment de la roue et phrase complète. Absent si la nation n'a pas été tirée au départ. */
+  start?: { segment: string; text: string };
+}
+export interface WheelDraws {
+  /** Ce que porte chaque roue. Les roues pondérées donnent [segment, poids]. */
+  pools: { government: string[]; economy: string[]; trait: string[]; rating: [string, number][]; start: [string, number][] };
+  draws: WheelDraw[];
+}
+
+const START_TEXT: Record<StartKind, (other: string) => string> = {
+  none: () => 'Libre, sans histoire', pariah: () => 'Paria : réputation d\'agresseur',
+  colony: (o) => `Colonie de ${o}`, protectorate: (o) => `Protectorat de ${o}`, overlord: (o) => `Protectrice de ${o}`,
+  rival: (o) => `Rivale de ${o}`, tension: (o) => `Tensions avec ${o}`, allied: (o) => `Alliée à ${o}`, trade: (o) => `Accord commercial avec ${o}`, war: (o) => `En guerre contre ${o}`,
+};
+export const NO_TRAIT = 'Aucun trait';
+export const ratingLabel = (r: number) => `${r} / 11`;
+
+/**
+ * Tirages de chaque nation et contenu des roues, pour les rejouer à l'écran.
+ * Lecture seule : le tirage a déjà eu lieu à la création du monde, rien n'est retiré ici.
+ */
+export function wheelDraws(world: World): WheelDraws {
+  const random = world.config.roster !== 'season1';
+  const distinct = (xs: string[]) => [...new Set(xs.filter(Boolean))];
+  const counts = (xs: string[]): [string, number][] => { const m = new Map<string, number>(); for (const x of xs) m.set(x, (m.get(x) ?? 0) + 1); return [...m.entries()]; };
+  const draws: WheelDraw[] = world.nations.map((n) => {
+    const s = n.wheel.start;
+    const other = s && s.target >= 0 ? world.nations[s.target]?.name ?? '?' : '';
+    const targeted = s && (s.kind === 'none' || s.kind === 'pariah' || s.target >= 0);
+    return {
+      id: n.id, government: n.wheel.government, economy: n.wheel.economy, rating: n.wheel.militaryRating, militaryClass: n.wheel.militaryClass,
+      tags: n.wheel.tags.map((t) => TAG_FR[t] ?? t),
+      ...(s ? { start: { segment: START_FR[s.kind], text: (targeted ? START_TEXT[s.kind](other) : START_FR[s.kind]) + (s.applied ? '' : ' (sans effet)') } } : {}),
+    };
+  });
+  const order = (list: [string, number][], ref: string[]) => list.sort((a, b) => ref.indexOf(a[0]) - ref.indexOf(b[0]));
+  return {
+    draws,
+    pools: {
+      government: distinct([...(random ? Object.values(GOV_LABELS).flat() : []), ...draws.map((d) => d.government)]),
+      economy: distinct([...(random ? ECONOMIES : []), ...draws.map((d) => d.economy)]),
+      trait: [...distinct([...TAG_WHEEL.map((t) => TAG_FR[t]), ...draws.flatMap((d) => d.tags)]), NO_TRAIT],
+      // Monde aléatoire : les vraies roues pondérées. Saison 1 : la répartition observée sur le wiki.
+      rating: random ? RATING_WHEEL.map(([r, w]): [string, number] => [ratingLabel(r), w]) : order(counts(draws.map((d) => ratingLabel(d.rating))), Array.from({ length: 12 }, (_, r) => ratingLabel(r))),
+      start: random ? START_WHEEL.map(([k, w]): [string, number] => [START_FR[k], w]) : order(counts(draws.flatMap((d) => (d.start ? [d.start.segment] : []))), Object.values(START_FR)),
+    },
+  };
 }

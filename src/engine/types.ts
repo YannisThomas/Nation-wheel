@@ -223,6 +223,17 @@ export interface Wheel {
   militaryRating: number;
   tags: string[];
   bloc: string;
+  /** Statut de départ tiré à la roue ; absent pour les nations nées en cours de partie. */
+  start?: WheelStart;
+}
+
+export type StartKind = 'none' | 'colony' | 'protectorate' | 'overlord' | 'rival' | 'tension' | 'allied' | 'trade' | 'pariah' | 'war';
+export interface WheelStart {
+  kind: StartKind;
+  /** Nation visée par le tirage, ou -1. */
+  target: number;
+  /** Faux quand le tirage n'a pas pu s'appliquer (suzerain trop faible, nation déjà vassale…). */
+  applied: boolean;
 }
 
 export const PREF_KEYS = ['science', 'defense', 'diplomacy', 'navy', 'trade', 'expansion', 'offensive', 'risk', 'welfare', 'industry'] as const;

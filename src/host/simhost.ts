@@ -13,6 +13,7 @@ import { previewTerrain } from '../engine/map';
 import { CLIMATE_FR, climateSeason, eraOf } from '../engine/seasons';
 import { DEFAULT_CONFIG } from '../engine/types';
 import { sideOf, warsOf } from '../engine/war';
+import { wheelDraws } from '../engine/wheel';
 import type { JournalEntry, Nation, SimConfig, World } from '../engine/types';
 
 export const STATUSES = ['microstate', 'minor_power', 'middle_power', 'regional_power', 'great_power', 'superpower'];
@@ -65,6 +66,7 @@ export type Command =
   | { type: 'decision'; id: number }
   | { type: 'series'; nation?: number }
   | { type: 'history' }
+  | { type: 'wheels' }
   | { type: 'journal'; nation?: number; kinds?: string[]; before?: number; limit?: number }
   | { type: 'diplomacy' }
   | { type: 'new'; config: Partial<SimConfig> }
@@ -305,6 +307,7 @@ export class SimHost {
       case 'decision': return this.records.find((r) => r.id === cmd.id) ?? null;
       case 'series': return cmd.nation === undefined ? this.worldSeries : this.nationSeries[cmd.nation] ?? [];
       case 'history': return { initialOwner: this.initialOwner, snapshots: this.snapshots, startYear: w.config.startYear };
+      case 'wheels': return wheelDraws(w);
       case 'journal': {
         let list = w.journal;
         if (cmd.nation !== undefined) list = list.filter((e) => e.nations.includes(cmd.nation!));

@@ -145,3 +145,49 @@ input:not([type=checkbox]):not([type=range]), select { background: var(--surface
 canvas.preview { width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; image-rendering: pixelated; background: #12283f; display: block; }
 .form output { color: var(--text); font-weight: 600; }
 input[type=range] { width: 100%; height: 44px; accent-color: var(--accent); }
+
+/* Tirage des roues, avant le début de la partie. */
+#draw { position: fixed; inset: 0; z-index: 40; background: var(--bg); display: flex; flex-direction: column; padding: var(--safe-t) 0 var(--safe-b); }
+#draw[hidden], #draw [hidden] { display: none; }
+#draw > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; flex: none; }
+#draw > header div { display: flex; flex-direction: column; min-width: 0; }
+.draw-main { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 0 14px 14px; width: 100%; max-width: 560px; margin: 0 auto; overflow-y: auto; }
+.draw-stage { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: none; }
+.draw-nation { display: flex; align-items: center; gap: 10px; font-size: 19px; min-height: 34px; max-width: 100%; }
+.draw-nation b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.draw-title { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-2); }
+.draw-wheel { width: min(78vw, 33vh, 340px); aspect-ratio: 300 / 308; cursor: pointer; }
+.draw-wheel svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.draw-wheel .rot { transform-origin: 0 0; }
+.draw-wheel .segs > * { stroke: var(--bg); stroke-width: 2; stroke-linejoin: round; transition: fill .25s; }
+.draw-wheel .labels text { fill: var(--text); font-size: 10.5px; text-anchor: end; transition: fill .25s; }
+.draw-wheel .hub { fill: var(--bg); stroke: var(--line); stroke-width: 2; }
+.draw-wheel .pointer { fill: var(--text); stroke: var(--bg); stroke-width: 2; stroke-linejoin: round; }
+.draw-wheel.landed .segs [data-win] { fill: var(--accent); }
+.draw-wheel.landed .labels text:not([data-win]) { fill: var(--text-2); }
+.draw-wheel.landed .labels [data-win] { fill: #fff; font-weight: 600; }
+.draw-result { margin: 0; font-size: 17px; font-weight: 600; text-align: center; min-height: 24px; }
+.draw-side { display: flex; flex-direction: column; gap: 10px; }
+.draw-slots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.draw-slots .stat { padding: 6px 10px; }
+.draw-slots .stat b { font-size: 13.5px; }
+.draw-slots .stat.pending b { color: var(--text-2); font-weight: 400; }
+.draw-slots .stat:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.draw-controls { position: sticky; bottom: 0; background: var(--bg); padding-top: 2px; }
+.draw-controls button { flex: 1 1 auto; }
+.draw-controls [data-draw="next"] { flex-basis: 100%; }
+.draw-recap { flex: 1; min-height: 0; width: 100%; max-width: 720px; margin: 0 auto; }
+.draw-list li { display: grid; grid-template-columns: 48px 1fr; gap: 12px; align-items: start; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.draw-list li > div { display: flex; flex-direction: column; min-width: 0; }
+.draw-list .chips { margin: 6px 0 0; } .draw-list .chip { white-space: normal; }
+.draw-end { position: sticky; bottom: 0; display: flex; gap: 8px; padding: 12px 0 4px; background: linear-gradient(transparent, var(--bg) 30%); }
+.draw-end button { flex: 1; }
+/* Écran large ou téléphone en paysage : la roue à gauche, les résultats à droite. */
+@media (min-width: 820px), (orientation: landscape) and (max-height: 520px) {
+  .draw-main { flex-direction: row; align-items: flex-start; justify-content: center; gap: 28px; max-width: 900px; }
+  .draw-stage, .draw-side { margin-block: auto; }
+  .draw-stage { flex: 0 1 auto; }
+  .draw-wheel { width: min(46vw, 62vh, 400px); }
+  .draw-side { flex: 0 1 340px; min-width: 240px; }
+}
+@media (orientation: landscape) and (max-height: 520px) { .draw-wheel { width: min(46vw, calc(100vh - 165px), 400px); } .draw-main { padding-bottom: 6px; gap: 20px; } .draw-nation { font-size: 16px; min-height: 0; } .draw-result { font-size: 15px; } #draw > header { padding: 4px 14px; } }

@@ -7,6 +7,7 @@ import { executeAction } from '../../src/engine/actions';
 import { exactHash } from '../../src/engine/hash';
 import { createWorld, step } from '../../src/engine/sim';
 import { warBetween } from '../../src/engine/war';
+import { NO_TRAIT, ratingLabel, wheelDraws } from '../../src/engine/wheel';
 import { cleanPair } from '../helpers/world';
 
 describe('tirage de la roue', () => {
@@ -129,4 +130,47 @@ describe('saison 1 de Nation Wheel', () => {
     }
     expect(a.nations.filter((n) => n.alive).length).toBeGreaterThan(50);
   }, 60000);
+});
+
+describe('tirages montrés avant la partie', () => {
+  it('monde aléatoire : chaque tirage figure sur sa roue et correspond au monde créé', () => {
+    const w = createWorld({ nations: 60, seed: 4 });
+    const before = exactHash(w);
+    const { pools, draws } = wheelDraws(w);
+    expect(exactHash(w)).toBe(before);
+    expect(draws).toHaveLength(60);
+    expect(pools.trait).toContain(NO_TRAIT);
+    expect(pools.start.reduce((a, [, x]) => a + x, 0)).toBe(100);
+    const kinds = new Set<string>();
+    for (const d of draws) {
+      const n = w.nations[d.id];
+      expect(pools.government).toContain(d.government);
+      expect(pools.economy).toContain(d.economy);
+      for (const t of d.tags) expect(pools.trait).toContain(t);
+      expect(d.rating).toBe(n.wheel.militaryRating);
+      expect(ratingLabel(d.rating)).toMatch(/^\d+ \/ 11$/);
+      expect(d.start).toBeDefined();
+      expect(pools.start.map(([l]) => l)).toContain(d.start!.segment);
+      kinds.add(d.start!.segment);
+      const s = n.wheel.start!;
+      // Le statut annoncé est celui que le moteur a réellement appliqué.
+      if (s.kind === 'colony' || s.kind === 'protectorate') expect(n.overlord === s.target).toBe(s.applied);
+      if (s.kind === 'colony' && s.applied) expect(d.start!.text).toBe(`Colonie de ${w.nations[s.target].name}`);
+      if (!s.applied) expect(d.start!.text).toMatch(/sans effet/);
+    }
+    expect(kinds.size).toBeGreaterThan(3);
+  });
+
+  it('saison 1 : les roues reprennent les tirages du wiki', () => {
+    const w = createWorld({ roster: 'season1', seed: 1 });
+    const { pools, draws } = wheelDraws(w);
+    expect(draws).toHaveLength(SEASON1.length);
+    expect(draws[0].government).toBe(SEASON1[0].gov);
+    expect(draws[0].start!.text).toBe('Colonie de Moravia');
+    for (const d of draws) {
+      expect(pools.government).toContain(d.government);
+      expect(pools.rating.map(([l]) => l)).toContain(ratingLabel(d.rating));
+      expect(pools.start.map(([l]) => l)).toContain(d.start!.segment);
+    }
+  });
 });

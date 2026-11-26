@@ -1,10 +1,11 @@
 import { GOAL_FR, GOV_FR, IDEO_FR, PREF_FR, TRAIT_FR } from '../../src/agents/profile';
-import { TAG_FR } from '../../src/engine/wheel';
+import { TAG_FR, type WheelDraws } from '../../src/engine/wheel';
 import type { DecisionRecord } from '../../src/agents/director';
 import type { InitMsg, NationDetail, NationInfo, StateMsg } from '../../src/host/simhost';
 import type { JournalEntry } from '../../src/engine/types';
 import { lineChart } from './charts';
 import { connect, type Client } from './client';
+import { openDraw } from './draw';
 import { DIV, MapView, nationColor, SEQ, TERRAIN_COLORS, type MapMode } from './mapview';
 
 // ---------- Utilitaires ----------
@@ -238,7 +239,7 @@ async function panelBody(): Promise<string> {
     }
     case 'admin': return adminHtml();
     case 'parametres': return settingsHtml();
-    case 'plus': return `<div class="menu">${[['economie', '📈', 'Économie'], ['militaire', '🛡', 'Militaire'], ['chronologie', '🕰', 'Chronologie'], ['dev', '🧠', 'Décisions (développeur)'], ['admin', '🛠', 'Administrateur'], ['parametres', '⚙', 'Paramètres']].map(([k, i, l]) => `<button data-act="panel" data-id="${k}"><span>${i}</span>${l}</button>`).join('')}</div>`;
+    case 'plus': return `<div class="menu">${[['roues', '🎡', 'Tirage des roues'], ['economie', '📈', 'Économie'], ['militaire', '🛡', 'Militaire'], ['chronologie', '🕰', 'Chronologie'], ['dev', '🧠', 'Décisions (développeur)'], ['admin', '🛠', 'Administrateur'], ['parametres', '⚙', 'Paramètres']].map(([k, i, l]) => `<button data-act="panel" data-id="${k}"><span>${i}</span>${l}</button>`).join('')}</div>`;
     default: return '';
   }
 }
@@ -409,8 +410,29 @@ function showHistory(): void {
   map.invalidate();
 }
 
+// ---------- Tirage des roues ----------
+/** Signature du monde : le tirage ne se rouvre pas tout seul une fois vu ou passé. */
+const worldKey = () => `draw:${JSON.stringify(init?.config ?? {})}`;
+async function showDraw(): Promise<void> {
+  const data = await client.cmd<WheelDraws>({ type: 'wheels' });
+  try { sessionStorage.setItem(worldKey(), '1'); } catch { /* stockage indisponible */ }
+  openDraw($('#draw'), {
+    data,
+    nation: (id) => ({ name: name(id), flag: infos[id] ? flag(infos[id].flag, 48) : '' }),
+    onClose: (play) => { if (play && st && !st.running) run(client.cmd({ type: 'play' })); },
+  });
+}
+/** Avant le début de la partie (aucun mois écoulé), le tirage s'affiche de lui-même. */
+function maybeShowDraw(): void {
+  if (!st || st.tick !== 0 || st.running || !$('#draw').hidden) return;
+  let seen = false;
+  try { seen = sessionStorage.getItem(worldKey()) === '1'; } catch { /* stockage indisponible */ }
+  if (!seen) run(showDraw());
+}
+
 // ---------- Messages de l'hôte ----------
 function onMessage(m: InitMsg | StateMsg): void {
+  const fresh = m.type === 'init';
   if (m.type === 'init') {
     init = m;
     infos.length = 0;
@@ -430,6 +452,7 @@ function onMessage(m: InitMsg | StateMsg): void {
   renderTop();
   syncMap();
   legend();
+  if (fresh) maybeShowDraw();
   const now = performance.now();
   if (now - ui.lastPanelRender > 700) {
     ui.lastPanelRender = now;
@@ -470,7 +493,7 @@ document.addEventListener('click', async (ev) => {
     case 'play': await client.cmd({ type: st!.running ? 'pause' : 'play' }); break;
     case 'step': await client.cmd({ type: 'step' }); break;
     case 'speed': { const speeds = [1, 2, 5, 12, 30, 1000]; await client.cmd({ type: 'speed', value: speeds[(speeds.indexOf(st!.speed) + 1) % speeds.length] }); break; }
-    case 'panel': openPanel(id === 'carte' ? null : id); break;
+    case 'panel': if (id === 'roues') { openPanel(null); await showDraw(); } else openPanel(id === 'carte' ? null : id); break;
     case 'close-panel': openPanel(null); break;
     case 'peek-map': $('#panel').classList.toggle('peek'); break;
     case 'select': await select(Number(id)); break;
@@ -524,8 +547,9 @@ document.addEventListener('submit', async (ev) => {
   const form = ev.target as HTMLFormElement;
   const f = Object.fromEntries(new FormData(form)) as Record<string, string>;
   if (form.dataset.form === 'new') {
-    await run(client.cmd({ type: 'new', config: formConfig(form) }), 'Nouveau monde créé.');
+    try { for (let i = sessionStorage.length - 1; i >= 0; i--) { const k = sessionStorage.key(i); if (k?.startsWith('draw:')) sessionStorage.removeItem(k); } } catch { /* stockage indisponible */ }
     openPanel(null);
+    await run(client.cmd({ type: 'new', config: formConfig(form) }), 'Nouveau monde créé.');
   } else if (form.dataset.form === 'save') { await run(client.save(f.name.trim()), 'Partie sauvegardée.'); renderPanel(true); }
   else if (form.dataset.form === 'llm') await run(client.cmd({ type: 'llm_connect', ...f }), 'LLM connecté.');
   else if (form.dataset.form === 'edit' && st?.selected) {
