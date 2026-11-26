@@ -5,6 +5,7 @@
 import { carryingCapacity } from './map';
 import { addJournal } from './journal';
 import { clamp, randNorm, pick, spin, rand } from './rng';
+import { trySecession } from './secession';
 import { GOVERNMENTS, LEADER_TRAITS, type Nation, type Status, type World } from './types';
 
 /** Coût d'un point d'équipement militaire, Md$. */
@@ -24,7 +25,8 @@ export function potentialGdp(n: Nation): number {
     * (0.75 + 0.25 * n.industry / 100)
     * resourceBonus
     * (1 - 0.35 * n.mil.mobilization)
-    * (1 - 0.6 * Math.max(0, n.taxRate - 0.3));
+    * (1 - 0.6 * Math.max(0, n.taxRate - 0.3))
+    * (1 + n.tradeBonus) * (n.blockaded ? 0.93 : 1) * (n.leader.trait === 'merchant' ? 1.02 : 1);
   return (perCapita * n.pop) / 1e9;
 }
 
@@ -32,7 +34,8 @@ export function militaryPower(n: Nation): number {
   const m = n.mil;
   const equipment = m.army + 0.8 * m.airforce + 0.6 * m.navy;
   return (Math.sqrt(m.personnel) / 10 + 5 * equipment)
-    * (0.5 + m.tech / 100) * (0.6 + m.experience / 125) * (0.6 + m.logistics / 125);
+    * (0.5 + m.tech / 100) * (0.6 + m.experience / 125) * (0.6 + m.logistics / 125)
+    * (n.leader.trait === 'warlord' ? 1.05 : 1);
 }
 
 export function computeHdi(n: Nation): number {
@@ -75,7 +78,7 @@ export function tickNation(world: World, n: Nation): void {
   const research = share('research');
   const dTech = 0.025 * (research * (1 - n.militaryResearchShare) / 0.015) * (0.3 + 0.7 * n.education / 100) * (1 - n.tech / TECH_MAX)
     + 0.004 * Math.max(0, world.techFrontier - n.tech) / 50;
-  n.tech = clamp(n.tech + Math.min(0.15, dTech), 0, TECH_MAX);
+  n.tech = clamp(n.tech + Math.min(0.15, dTech * (n.leader.trait === 'scholar' ? 1.1 : 1)), 0, TECH_MAX);
   const milCeiling = Math.max(0, 1 - m.tech / (n.tech + 20));
   m.tech = clamp(m.tech + Math.min(0.15, 0.025 * (research * n.militaryResearchShare / 0.005) * milCeiling) - 0.01, 0, TECH_MAX);
 
@@ -83,7 +86,7 @@ export function tickNation(world: World, n: Nation): void {
   n.education += (100 * (1 - Math.exp(-share('education') / 0.025)) - n.education) * 0.004;
   const welfare = share('welfare');
   n.health += (25 + 75 * (1 - Math.exp(-welfare / 0.05)) * techEff - n.health) * 0.006;
-  n.infrastructure += (100 * share('infrastructure') / 12) * 8 * (1 - n.infrastructure / 100) * techEff - n.infrastructure * 0.004;
+  n.infrastructure += (100 * share('infrastructure') / 12) * 8 * (1 - n.infrastructure / 100) * techEff * (n.leader.trait === 'builder' ? 1.15 : 1) - n.infrastructure * 0.004;
   n.industry += (100 * share('industry') / 12) * 10 * (1 - n.industry / 100) * techEff - n.industry * 0.004;
   n.education = clamp(n.education, 1, 100);
   n.health = clamp(n.health, 1, 100);
@@ -137,17 +140,24 @@ export function tickNation(world: World, n: Nation): void {
   // --- Société ---
   const stabilityTarget = 50 + 30 * (n.hdi - 0.5) + clamp(n.gdpGrowth * 150, -12, 8)
     - 15 * Math.max(0, debtRatio - 1) - 25 * m.mobilization - 60 * Math.max(0, n.taxRate - 0.35)
-    + 8 * clamp(welfare / 0.09 - 1, -1, 1);
+    + 8 * clamp(welfare / 0.09 - 1, -1, 1)
+    - 0.25 * n.warExhaustion - 40 * Math.min(0.5, n.overextension) - 70 * Math.max(0, n.geo.cells / world.landCells - 0.06)
+    + (n.leader.trait === 'reformer' || n.leader.trait === 'populist' ? 3 : 0);
+  n.warExhaustion = Math.max(0, n.warExhaustion - 0.6);
   n.stability = clamp(n.stability + (stabilityTarget - n.stability) * 0.04 + randNorm(world) * 0.6, 0, 100);
   n.qualityOfLife = 100 * (0.6 * n.hdi + 0.25 * n.stability / 100 + 0.15 * (1 - m.mobilization));
 
   // --- Politique intérieure ---
-  if (n.stability < 15 && rand(world) < 0.03) {
+  if (n.stability < 15 && rand(world) < 0.015) {
     const old = n.government;
     n.government = pick(world, GOVERNMENTS.filter((g) => g !== old));
     n.leader = { ...n.leader, trait: pick(world, LEADER_TRAITS), since: world.tick, name: n.leader.name.split(' ').reverse().join(' ') };
-    n.stability = clamp(n.stability + 25, 0, 100);
+    n.stability = Math.max(45, clamp(n.stability + 25, 0, 100));
     addJournal(world, 'regime_change', [n.id], `Le régime de ${n.name} s'effondre : ${old} → ${n.government}.`);
+    if (rand(world) < 0.6) trySecession(world, n);
+  } else if (n.stability < 35 && n.geo.cells / world.landCells > 0.12 && rand(world) < 0.006) {
+    // Surextension impériale : les provinces lointaines se détachent.
+    trySecession(world, n);
   } else if (rand(world) < 1 / (12 * 18)) {
     n.leader = { name: n.leader.name.split(' ').reverse().join(' '), trait: pick(world, LEADER_TRAITS), since: world.tick };
     addJournal(world, 'succession', [n.id], `Nouveau dirigeant en ${n.name} (${n.leader.trait}).`);
@@ -203,8 +213,10 @@ export function randomEvents(world: World): void {
 /** Classement géopolitique, relatif à la moyenne mondiale. */
 export function updateStatuses(world: World): void {
   const alive = world.nations.filter((n) => n.alive);
-  const score = (n: Nation) => Math.sqrt(n.gdp) * (1 + n.tech / 100) + n.mil.power / 5;
-  const mean = alive.reduce((s, n) => s + score(n), 0) / Math.max(1, alive.length);
+  const meanGdp = alive.reduce((s, n) => s + n.gdp, 0) / Math.max(1, alive.length);
+  const meanPower = alive.reduce((s, n) => s + n.mil.power, 0) / Math.max(1, alive.length);
+  const score = (n: Nation) => 0.6 * n.gdp / Math.max(1e-9, meanGdp) + 0.4 * n.mil.power / Math.max(1e-9, meanPower);
+  const mean = 1;
   for (const n of alive) {
     const r = score(n) / Math.max(1e-9, mean);
     const status: Status = n.geo.cells <= 3 || n.pop < 3e5 ? 'microstate'

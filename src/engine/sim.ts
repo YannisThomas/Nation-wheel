@@ -1,5 +1,7 @@
 import { executeAction } from './actions';
+import { tickDiplomacy, updateBlocs } from './diplomacy';
 import { generateMap, recomputeGeo } from './map';
+import { tickWars } from './war';
 import { generateNations } from './nationgen';
 import { computeHdi, randomEvents, tickNation, updateStatuses } from './systems';
 import { DEFAULT_CONFIG, type Action, type ActionResult, type SimConfig, type World } from './types';
@@ -9,8 +11,10 @@ export function createWorld(config: Partial<SimConfig> = {}): World {
   const world: World = {
     version: 1, config: cfg, tick: 0, rngState: cfg.seed | 0,
     map: undefined as never, nations: [], journal: [], nextJournalId: 1, geoDirty: false, techFrontier: 0,
+    relations: {}, proposals: [], nextProposalId: 1, wars: [], nextWarId: 1, warsEnded: 0, memoryCursor: 0, landCells: 1,
   };
   world.map = generateMap(cfg, world);
+  world.landCells = Math.max(1, world.map.terrain.filter((t) => t !== 0).length);
   generateNations(world);
   for (const n of world.nations) {
     n.hdi = computeHdi(n);
@@ -25,6 +29,9 @@ export function createWorld(config: Partial<SimConfig> = {}): World {
 export function step(world: World, actions: Action[] = []): ActionResult[] {
   const results = actions.map((a) => executeAction(world, a));
   if (world.geoDirty) recomputeGeo(world);
+  tickWars(world);
+  if (world.geoDirty) recomputeGeo(world);
+  tickDiplomacy(world);
   for (const n of world.nations) if (n.alive) tickNation(world, n);
   randomEvents(world);
   if (world.geoDirty) recomputeGeo(world);

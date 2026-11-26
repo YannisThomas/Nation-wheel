@@ -178,7 +178,7 @@ function emptyGeo(): Geo {
     terrain: Object.fromEntries(TERRAINS.map((t) => [t, 0])) as Record<Terrain, number>,
     riverCells: 0, parts: 0, fertility: 0,
     resources: Object.fromEntries(RESOURCES.map((r) => [r, 0])) as Record<Resource, number>,
-    neighbors: {}, strategic: 0,
+    neighbors: {}, strategic: 0, freeAdjacent: 0,
   };
 }
 
@@ -191,7 +191,16 @@ export function recomputeGeo(world: World): void {
 
   for (let i = 0; i < n; i++) {
     const o = map.owner[i];
-    if (o < 0) continue;
+    if (o < 0) {
+      if (map.terrain[i] === OCEAN) continue;
+      let last = -1;
+      for (let k = 0; k < 6; k++) {
+        const j = nb[i * 6 + k];
+        const p = j >= 0 ? map.owner[j] : -1;
+        if (p >= 0 && p !== last) { geos[p].freeAdjacent++; last = p; }
+      }
+      continue;
+    }
     const g = geos[o];
     g.cells++;
     g.terrain[TERRAINS[map.terrain[i]]]++;

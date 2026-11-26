@@ -1,6 +1,8 @@
 import { neighborTable, OCEAN, recomputeGeo, carryingCapacity } from './map';
 import { clamp, pick, rand, randInt, randNorm, randRange, spin, type HasRng } from './rng';
 import { potentialGdp, militaryPower } from './systems';
+import { newMind } from './mind';
+import { getRel } from './diplomacy';
 import {
   GOVERNMENTS, IDEOLOGIES, LEADER_TRAITS, TERRAINS,
   type Budget, type Flag, type Government, type Ideology, type Nation, type World,
@@ -211,6 +213,9 @@ export function generateNations(world: World): void {
         logistics: 0, doctrine: 'balanced', budget: 0, power: 0,
       },
       geo: undefined as never, // rempli par recomputeGeo juste en dessous
+      infamy: 0, tradeBonus: 0, exports: 0, imports: 0, warExhaustion: 0, overextension: 0,
+      bloc: -1, sphereOf: -1, blockaded: false,
+      mind: newMind(world),
     };
   });
 
@@ -238,6 +243,8 @@ export function generateNations(world: World): void {
     m.army = points - m.navy - m.airforce;
     m.power = militaryPower(n);
   }
+  // Les voisins se connaissent dès le départ.
+  for (const n of world.nations) for (const o of Object.keys(n.geo.neighbors)) getRel(world, n.id, +o);
 }
 
 export { TERRAINS };

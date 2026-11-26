@@ -32,5 +32,5 @@ export function worldStateHash(world: World): string {
 
 /** Empreinte exacte, pour vérifier le déterminisme et les sauvegardes. */
 export function exactHash(world: World): string {
-  return fnv1a(JSON.stringify([world.tick, world.rngState, world.nations, world.map.owner, world.map.resource]));
+  return fnv1a(JSON.stringify([world.tick, world.rngState, world.nations, world.map.owner, world.map.resource, world.relations, world.wars, world.proposals]));
 }

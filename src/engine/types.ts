@@ -88,6 +88,8 @@ export interface Geo {
   neighbors: Record<number, number>;
   /** 0..100 */
   strategic: number;
+  /** Terres libres au contact du territoire (compte approximatif). */
+  freeAdjacent: number;
 }
 
 export interface Budget {
@@ -162,6 +164,117 @@ export interface Nation {
 
   mil: Military;
   geo: Geo;
+
+  // Diplomatie et commerce (valeurs dérivées, recalculées par le moteur)
+  /** Réputation d'agresseur, 0..100 ; décroît avec le temps. */
+  infamy: number;
+  /** Bonus de PIB potentiel dû au commerce, net des sanctions subies. */
+  tradeBonus: number;
+  exports: number;
+  imports: number;
+  /** Usure de guerre, 0..150. */
+  warExhaustion: number;
+  /** Part du territoire conquise récemment, 0..1 ; coûte de la stabilité. */
+  overextension: number;
+  /** Chef du bloc d'alliances auquel la nation appartient, -1 sinon. */
+  bloc: number;
+  /** Puissance protectrice, -1 sinon. */
+  sphereOf: number;
+  blockaded: boolean;
+
+  mind: Mind;
+}
+
+export const PREF_KEYS = ['science', 'defense', 'diplomacy', 'navy', 'trade', 'expansion', 'offensive', 'risk', 'welfare', 'industry'] as const;
+export type PrefKey = (typeof PREF_KEYS)[number];
+export type Preferences = Record<PrefKey, number>;
+
+export interface MemoryItem {
+  tick: number;
+  type: string;
+  /** Autres nations concernées. */
+  actors: number[];
+  text: string;
+  /** Importance 0..1. */
+  weight: number;
+}
+
+/** État mental d'une nation-agent. Le moteur le transporte et le sauvegarde, sans le lire. */
+export interface Mind {
+  /** Tempérament propre tiré à la création : deux nations identiques sur le papier divergent. */
+  quirks: Preferences;
+  /** Dérive due au vécu (invasions, trahisons, victoires). */
+  drift: Preferences;
+  /** Sentiment durable envers les autres nations, -100..100. */
+  attitudes: Record<number, number>;
+  recent: MemoryItem[];
+  important: MemoryItem[];
+  historical: string[];
+  /** Compteurs du vécu : invaded, aggressions, betrayed, won, lost, conquests. */
+  counters: Record<string, number>;
+  lastJournalId: number;
+  nextReview: number;
+  urgency: number;
+  /** Cache de décisions : empreinte de situation -> option choisie. */
+  cache: Record<string, { option: string; tick: number }>;
+  /** « action@cible » -> tick avant lequel la nation ne retente pas cette démarche. */
+  cooldowns: Record<string, number>;
+}
+
+export type TreatyKind = 'trade' | 'non_aggression' | 'defense_pact';
+export const TREATY_KINDS: TreatyKind[] = ['trade', 'non_aggression', 'defense_pact'];
+
+/** Relation entre deux nations a < b. Les couples [x, y] sont rangés [a→b, b→a]. */
+export interface Relation {
+  opinion: number;
+  /** Tick de signature, -1 si absent. */
+  trade: number;
+  non_aggression: number;
+  defense_pact: number;
+  sanctions: [boolean, boolean];
+  claims: [boolean, boolean];
+  truceUntil: number;
+  atWar: boolean;
+}
+
+export interface PeaceTerms {
+  /** white : retour aux frontières d'avant-guerre ; status_quo : chacun garde ce qu'il tient. */
+  deal: 'white' | 'status_quo';
+  /** Md$. Positif : le destinataire paie l'auteur de la proposition ; négatif : l'inverse. */
+  reparations?: number;
+}
+
+export type ProposalKind = TreatyKind | 'peace' | 'call_to_arms';
+
+export interface Proposal {
+  id: number;
+  from: number;
+  to: number;
+  kind: ProposalKind;
+  terms?: PeaceTerms;
+  war?: number;
+  tick: number;
+  expires: number;
+  counterOf?: number;
+}
+
+export type Stance = 'offensive' | 'defensive';
+
+export interface War {
+  id: number;
+  name: string;
+  /** Le premier de chaque camp en est le chef. */
+  attackers: number[];
+  defenders: number[];
+  start: number;
+  /** -100..100, positif = avantage aux attaquants. */
+  score: number;
+  stance: Record<number, Stance>;
+  casualties: Record<number, number>;
+  /** Cellule -> propriétaire d'avant-guerre. */
+  captured: Record<number, number>;
+  /** Ticks consécutifs sans combat. */
+  idle: number;
 }
 
 export interface JournalEntry {
@@ -172,6 +285,7 @@ export interface JournalEntry {
   text: string;
   /** Intervention du mode administrateur. */
   admin?: boolean;
+  data?: Record<string, number | string>;
 }
 
 export interface World {
@@ -184,6 +298,17 @@ export interface World {
   journal: JournalEntry[];
   nextJournalId: number;
   geoDirty: boolean;
+  relations: Record<string, Relation>;
+  proposals: Proposal[];
+  nextProposalId: number;
+  wars: War[];
+  nextWarId: number;
+  /** Nombre de guerres terminées. */
+  warsEnded: number;
+  /** Dernière entrée de journal déjà transformée en souvenirs. */
+  memoryCursor: number;
+  /** Nombre de cellules terrestres de la carte. */
+  landCells: number;
   /** Plus haut niveau technologique atteint (diffusion). */
   techFrontier: number;
 }
@@ -195,7 +320,18 @@ export type Action =
   | { type: 'set_tax'; nation: number; rate: number }
   | { type: 'invest'; nation: number; sector: BudgetSector; amount: number }
   | { type: 'mobilize'; nation: number; level: number }
-  | { type: 'research'; nation: number; militaryShare: number };
+  | { type: 'research'; nation: number; militaryShare: number }
+  | { type: 'set_doctrine'; nation: number; doctrine: Military['doctrine'] }
+  | { type: 'claim_land'; nation: number }
+  | { type: 'propose'; nation: number; target: number; kind: TreatyKind | 'peace'; terms?: PeaceTerms }
+  | { type: 'respond'; nation: number; proposal: number; answer: 'accept' | 'reject' | 'counter'; kind?: TreatyKind; terms?: PeaceTerms }
+  | { type: 'break_treaty'; nation: number; target: number; kind: TreatyKind }
+  | { type: 'sanction'; nation: number; target: number; on: boolean }
+  | { type: 'threaten'; nation: number; target: number }
+  | { type: 'send_aid'; nation: number; target: number; amount: number }
+  | { type: 'press_claim'; nation: number; target: number }
+  | { type: 'declare_war'; nation: number; target: number }
+  | { type: 'set_stance'; nation: number; stance: Stance };
 
 export interface ActionResult {
   action: Action;
@@ -203,4 +339,6 @@ export interface ActionResult {
   reason?: string;
   /** Conséquences calculées par le moteur, lisibles par l'UI et les agents. */
   effects?: Record<string, number>;
+  /** Phrase lisible décrivant ce qui s'est réellement passé. */
+  summary?: string;
 }

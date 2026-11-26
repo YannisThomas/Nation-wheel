@@ -1,7 +1,7 @@
 import type { World } from './types';
 
-export function addJournal(world: World, type: string, nations: number[], text: string, admin = false): void {
-  world.journal.push({ id: world.nextJournalId++, tick: world.tick, type, nations, text, ...(admin ? { admin } : {}) });
+export function addJournal(world: World, type: string, nations: number[], text: string, admin = false, data?: Record<string, number | string>): void {
+  world.journal.push({ id: world.nextJournalId++, tick: world.tick, type, nations, text, ...(admin ? { admin } : {}), ...(data ? { data } : {}) });
   // Fenêtre glissante en mémoire ; le serveur archivera le journal complet sur disque.
   if (world.journal.length > world.config.maxJournal) world.journal.splice(0, world.journal.length - world.config.maxJournal);
 }
