@@ -19,6 +19,10 @@
 | 15 | Tests de simulation longue | Fait jusqu'à 12 000 ticks avec agents |
 | 16 | Optimisation | Partiel : voir ci-dessous |
 
+## Roues de la saison 3
+
+Branchées dans le moteur, la personnalité des nations et le contexte du LLM (`src/data/wheels3.ts`, `spinSeason3` dans `src/engine/wheel.ts`). Non repris : les roues Lucky Streak, Cursed Streak et The Great Equalizer, dont la règle de déclenchement n'est pas connue ; les variantes « Small » / « Big » ; le cas Two / Three Continents. Les pondérations des roues « boosted by » et l'effet de chaque impact régional sont des approximations du simulateur.
+
 ## Reste à faire
 
 - Mesurer la fiabilité du vrai modèle sur une partie entière (taux de réponses valides, part de replis) et ajuster les prompts.

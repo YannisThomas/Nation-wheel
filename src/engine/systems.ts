@@ -3,6 +3,7 @@
 // infinie ni de population négative, même sur des milliers de ticks.
 
 import { carryingCapacity } from './map';
+import { redrawDoctrine } from './doctrine';
 import { addJournal } from './journal';
 import { clamp, randNorm, pick, spin, rand } from './rng';
 import { trySecession } from './secession';
@@ -17,7 +18,8 @@ export const gdpPerCapita = (n: Nation) => (n.gdp * 1e9) / Math.max(1, n.pop);
 
 /** PIB potentiel (Md$) : ce vers quoi l'économie converge. */
 export function potentialGdp(n: Nation): number {
-  const deposits = Object.values(n.geo.resources).reduce((a, b) => a + b, 0);
+  // Saison 3 : les matières tirées à la roue comptent comme des gisements, à leur valeur.
+  const deposits = Object.values(n.geo.resources).reduce((a, b) => a + b, 0) + (n.wheel.s3?.materials ?? 0);
   const resourceBonus = 1 + Math.min(0.3, (4 * deposits) / Math.max(1, n.geo.cells) * (0.3 + 0.7 * n.industry / 100));
   const perCapita = 400 * Math.exp(n.tech / 21)
     * (0.55 + 0.45 * n.infrastructure / 100)
@@ -61,6 +63,7 @@ export function tickNation(world: World, n: Nation): void {
     const lord = world.nations[n.overlord];
     if (!lord.alive) {
       n.overlord = -1; n.colony = false;
+      redrawDoctrine(world, n);
       addJournal(world, 'independence', [n.id, lord.id], `${n.name} retrouve son indépendance après la disparition de ${lord.name}.`);
     } else {
       const tribute = spend * (n.colony ? 0.12 : 0.03);
@@ -159,6 +162,8 @@ export function tickNation(world: World, n: Nation): void {
     + 8 * clamp(welfare / 0.09 - 1, -1, 1)
     - 0.25 * n.warExhaustion - 40 * Math.min(0.5, n.overextension) - 70 * Math.max(0, n.geo.cells / world.landCells - 0.06)
     + (n.leader.trait === 'reformer' || n.leader.trait === 'populist' ? 3 : 0)
+    // Saison 3 : des services secrets puissants tiennent le pays, des services absents le laissent exposé.
+    + (n.wheel.s3 ? (n.wheel.s3.secret - 5) * 0.8 : 0)
     + era.stability - 3 * winter + (world.config.climateSeasons && climateSeason(world, n.geo.latitude) === 'autumn' ? 1.5 : 0);
   n.warExhaustion = Math.max(0, n.warExhaustion - 0.6);
   n.stability = clamp(n.stability + (stabilityTarget - n.stability) * 0.04 + randNorm(world) * 0.6, 0, 100);
@@ -169,6 +174,7 @@ export function tickNation(world: World, n: Nation): void {
     const old = n.government;
     n.government = pick(world, GOVERNMENTS.filter((g) => g !== old));
     n.wheel.government = '';
+    redrawDoctrine(world, n);
     n.leader = { ...n.leader, trait: pick(world, LEADER_TRAITS), since: world.tick, name: n.leader.name.split(' ').reverse().join(' ') };
     n.stability = Math.max(45, clamp(n.stability + 25, 0, 100));
     addJournal(world, 'regime_change', [n.id], `Le régime de ${n.name} s'effondre : ${old} → ${n.government}.`);

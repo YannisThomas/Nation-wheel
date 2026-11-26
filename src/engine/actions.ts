@@ -3,6 +3,7 @@
 // validation. Toute entrée malformée est refusée avec un motif.
 
 import { addProposal, breakTreaty, dir, getRel, peekRel, shiftOpinion, signTreaty, TREATY_LABEL } from './diplomacy';
+import { redrawDoctrine } from './doctrine';
 import { addJournal } from './journal';
 import { neighborTable, OCEAN } from './map';
 import { clamp } from './rng';
@@ -360,6 +361,7 @@ function apply(world: World, a: Action): Record<string, number> {
       const lets = warsOf(world, lord.id).length > 0 || lord.stability < 35 || lord.mil.power < 1.5 * n.mil.power;
       n.overlord = -1;
       n.colony = false;
+      redrawDoctrine(world, n);
       n.stability = clamp(n.stability + 10, 0, 100);
       shiftOpinion(world, n.id, lord.id, -20);
       lord.mind.urgency = 1;

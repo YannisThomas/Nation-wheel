@@ -3,7 +3,8 @@ import { clamp, pick, rand, randInt, randNorm, randRange, spin, type HasRng } fr
 import { potentialGdp, militaryPower } from './systems';
 import { newMind } from './mind';
 import { SEASON1 } from '../data/season1';
-import { applyRoster, spinWheel } from './wheel';
+import { SIZES, sizeWeight } from '../data/wheels3';
+import { applyRoster, spinSeason3, spinWheel } from './wheel';
 import { getRel } from './diplomacy';
 import {
   GOVERNMENTS, IDEOLOGIES, LEADER_TRAITS, TERRAINS,
@@ -158,10 +159,16 @@ export function generateNations(world: World): void {
 
   // Croissance simultanée (Dijkstra multi-sources) bornée par un rayon tiré à la roue.
   const baseRadius = Math.sqrt(land.length / capitals.length / Math.PI) * 1.25;
-  const radius = capitals.map(() => (roster ? Infinity : baseRadius * spin(world, SIZE_WHEEL)));
+  // Saison 3 : la roue « Country Size » fixe la part de carte de chaque nation.
+  const sizes = config.roster === 'season3' ? capitals.map(() => spin(world, SIZES.map((k): [number, number] => [k, sizeWeight(k)]))) : null;
+  const radius = capitals.map(() => (roster || sizes ? Infinity : baseRadius * spin(world, SIZE_WHEEL)));
   // Avec les nations de la saison 1, la superficie tirée fixe le nombre de cellules (ramené à l'échelle de la carte).
   const rosterArea = roster ? roster.slice(0, capitals.length).reduce((s, e) => s + (e.area ?? 3e5), 0) : 0;
-  const limit = capitals.map((_, i) => (roster ? Math.max(1, Math.round(((roster[i].area ?? 3e5) / rosterArea) * land.length * 0.9)) : Infinity));
+  // Les superficies tirées vont de 1 000 à 10 millions de km² : la racine carrée atténue l'écart pour que
+  // les petites nations existent sur la carte, et un quart des terres reste libre pour la colonisation.
+  const sizeTotal = sizes ? sizes.reduce((s, k) => s + Math.sqrt(k), 0) : 0;
+  const limit = capitals.map((_, i) => (roster ? Math.max(1, Math.round(((roster[i].area ?? 3e5) / rosterArea) * land.length * 0.9))
+    : sizes ? Math.max(1, Math.round((Math.sqrt(sizes[i]) / sizeTotal) * land.length * 0.75)) : Infinity));
   const owned = capitals.map(() => 0);
   const cost = new Float64Array(map.terrain.length).fill(Infinity);
   const heap = new Heap();
@@ -254,7 +261,13 @@ export function generateNations(world: World): void {
   }
   // Les voisins se connaissent dès le départ.
   for (const n of world.nations) for (const o of Object.keys(n.geo.neighbors)) getRel(world, n.id, +o);
-  if (roster) applyRoster(world, roster); else spinWheel(world);
+  if (roster) applyRoster(world, roster);
+  else if (sizes) {
+    spinSeason3(world, sizes);
+    // Le régime vient d'être tiré : le budget suit.
+    for (const n of world.nations) { n.budget = baseBudget(n.government, n.ideology); n.militaryResearchShare = n.ideology === 'militarist' ? 0.4 : 0.2; }
+  }
+  else spinWheel(world);
   // Une population tirée au-delà de ce que la terre nourrit vit d'importations.
   for (const n of world.nations) {
     const cap = carryingCapacity(n, map) * (1 + Math.min(2, (n.gdp * 1e9) / Math.max(1, n.pop) / 15000));

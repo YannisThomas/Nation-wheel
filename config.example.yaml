@@ -5,7 +5,7 @@ simulation:
   max_nations: 500
   nations: 50
   seed: 1
-  roster: random       # random = nations tirées à la roue ; season1 = les 103 nations du wiki
+  roster: season3      # season3 = roues de la saison 3 de Nation Wheel ; random = anciennes listes du simulateur ; season1 = les 103 nations du wiki
   map_width: 160
   map_height: 90
   start_year: 1800

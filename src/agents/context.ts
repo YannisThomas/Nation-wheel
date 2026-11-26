@@ -61,6 +61,13 @@ export function buildContext(world: World, n: Nation, sit: Situation, options: O
   lines.push(`DATE : ${formatDate(world)}${climate}`, '', `NATION : ${n.name} (capitale ${n.capitalName}), ${STATUS_FR[n.status]}`);
   if (n.overlord >= 0) lines.push(`Statut : ${n.colony ? 'colonie' : 'protectorat'} de ${world.nations[n.overlord].name} (tribut versé, pas de guerre de notre propre chef)`);
   lines.push(`Classe militaire : ${n.wheel.militaryClass} (${n.wheel.militaryRating}/11)`);
+  const s3 = n.wheel.s3;
+  if (s3) {
+    // Tirage de la saison 3 : l'identité de la nation, telle que les roues l'ont fixée.
+    lines.push(`Idéologie : ${s3.ideology}${s3.doctrine ? `, doctrine « ${s3.doctrine} »` : ''}. Région : ${s3.region}, marquée par « ${s3.impact} » (${s3.impactSign > 0 ? 'un atout' : s3.impactSign < 0 ? 'un handicap' : 'ni atout ni handicap'}).`);
+    lines.push(`Services secrets : ${s3.secretName.replace(/ \(\d+\)$/, '')} (niveau ${s3.secret}/10).${s3.resources.length ? ` Ressources du pays : ${s3.resources.join(', ')}.` : ''}`);
+    lines.push(`Histoire fondatrice : « ${s3.background} ».${s3.great ? ` Grande figure nationale : ${s3.great}.` : ''}`);
+  }
   lines.push(`Dirigeant : ${n.leader.name}, ${TRAIT_FR[n.leader.trait]}`, '', 'BACKGROUND :', `${background(world, n, sit.around).join('. ')}.`);
   if (n.mind.historical.length) lines.push(...n.mind.historical.slice(-4));
   lines.push('', `OBJECTIFS : ${top(g, GOAL_FR, 5)}`, `PENCHANTS FORTS : ${top(sit.prefs, PREF_FR, 4)}`, `PENCHANTS FAIBLES : ${low}`);

@@ -64,7 +64,9 @@ npm run examples            # régénère le dossier examples/
 - **Moteur** : économie, dette, démographie, IDH, stabilité, recherche, armée, commerce, sanctions, guerres avec conquête de cellules, paix, annexions, sécessions, changements de régime, événements.
 - **Agents** : background et personnalité dérivés des caractéristiques et du vécu, objectifs pondérés, mémoire hiérarchique, rancunes et gratitudes.
 - **Décision** : le LLM (ou le moteur comportemental) choisit parmi des options valides ; le moteur valide, applique et chiffre les conséquences.
-- **Tirage des roues** : avant le premier mois, chaque nation voit ses roues tourner à l'écran (régime, économie, classe militaire, traits, statut de départ) et s'arrêter sur ce que le moteur a tiré. On peut accélérer, passer une nation ou tout révéler ; le menu Plus permet de le revoir.
+- **Roues de la saison 3 de Nation Wheel** (mode par défaut) : chaque nation tire sa superficie, sa population, son idéologie et sa doctrine, sa région et son impact régional, son PIB, ses ressources, son IDH, sa classe d'armée, ses effectifs, ses services secrets, son histoire et une grande figure. Le contenu des roues est relevé sur les vidéos de la chaîne, complété là où il est illisible ; voir `docs/05-roues-nation-wheel.md`. Les anciennes listes du simulateur et la saison 1 du wiki restent disponibles dans Paramètres → Monde.
+- **Ce que le tirage change** : il fixe le monde de départ (carte, économie, armées, colonies), pèse sur la personnalité des nations et figure dans ce que lit le LLM. Quand un régime tombe, la nation retire une doctrine.
+- **Tirage à l'écran** : avant le premier mois, chaque nation voit ses roues tourner et s'arrêter sur ce que le moteur a tiré. On peut accélérer, passer une nation ou tout révéler ; le bouton ⏹ de la barre du haut ouvre le menu de la partie (reprendre, recommencer, nouvelle partie, revoir le tirage).
 - **Interface** : carte tactile, fiche de nation, classements, diplomatie, journal, chronologie de la carte, graphiques, sauvegardes, mode administrateur, panneau des décisions.
 
 ## Limites connues

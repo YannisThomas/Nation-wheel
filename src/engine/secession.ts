@@ -2,6 +2,7 @@
 // devient une nouvelle nation. C'est le frein naturel aux empires.
 
 import { getRel } from './diplomacy';
+import { redrawDoctrine } from './doctrine';
 import { addJournal } from './journal';
 import { neighborTable } from './map';
 import { newMind } from './mind';
@@ -55,10 +56,11 @@ export function trySecession(world: World, parent: Nation): Nation | null {
     flag: { pattern: parent.flag.pattern, colors: [pick(world, COLORS), pick(world, COLORS), pick(world, COLORS)] },
     leader: { name: `${cap(syll(world, 2))} ${cap(syll(world, 2))}`, trait: pick(world, LEADER_TRAITS), since: world.tick },
     pop: parent.pop * share, gdp: parent.gdp * share * 0.9, debt: parent.debt * share, treasury: 0,
-    overlord: -1, colony: false, capacityFactor: 1, wheel: { ...parent.wheel, government: '', bloc: '', tags: [...parent.wheel.tags] },
+    overlord: -1, colony: false, capacityFactor: 1, wheel: { ...parent.wheel, government: '', bloc: '', tags: [...parent.wheel.tags], spins: undefined, start: undefined, ...(parent.wheel.s3 ? { s3: { ...parent.wheel.s3, resources: [], materials: 0, background: 'Gained its independence', great: '' } } : {}) },
     stability: 55, infamy: 0, warExhaustion: 0, overextension: 0, bloc: -1, sphereOf: -1, blockaded: false,
     mind: newMind(world),
   });
+  redrawDoctrine(world, child);
   for (const k of ['personnel', 'reserves', 'army', 'airforce', 'navy'] as const) {
     child.mil[k] = parent.mil[k] * share * 0.8;
     parent.mil[k] *= 1 - share;

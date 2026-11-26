@@ -7,7 +7,7 @@ import { LlmChooser, selfTest } from '../../src/llm/chooser';
 import { makeProvider, type RuntimeName } from '../../src/llm/provider';
 
 // Carte plus petite par défaut : un téléphone n'a pas la puissance d'un PC.
-const host = new SimHost({ width: 120, height: 68, nations: 30, seed: Math.floor(Math.random() * 1e6) }, { ...DEFAULT_DECISION_CONFIG, maxLlmCallsPerTick: 1 });
+const host = new SimHost({ roster: 'season3', width: 120, height: 68, nations: 30, seed: Math.floor(Math.random() * 1e6) }, { ...DEFAULT_DECISION_CONFIG, maxLlmCallsPerTick: 1 });
 host.onMessage((push) => postMessage({ push }));
 
 onmessage = async (e: MessageEvent<{ id: number; cmd: Command | { type: 'llm_connect'; runtime: RuntimeName; url: string; model: string } }>) => {

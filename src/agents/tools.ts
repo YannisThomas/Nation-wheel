@@ -39,7 +39,13 @@ export function execTool(world: World, self: Nation, name: string, args: Record<
     world.nations.filter((o) => o.alive && o.id !== n.id && (peekRel(world, n.id, o.id)?.[key] ?? -1) >= 0).map((o) => o.name);
   switch (name) {
     case 'get_nation':
-      return JSON.stringify({ nom: target.name, capitale: target.capitalName, statut: target.status, profil: background(world, target), population_M: round(target.pop / 1e6), superficie_km2: Math.round(target.geo.areaKm2), stabilite: Math.round(target.stability), dirigeant: target.leader.trait });
+      return JSON.stringify({ nom: target.name, capitale: target.capitalName, statut: target.status, profil: background(world, target), population_M: round(target.pop / 1e6), superficie_km2: Math.round(target.geo.areaKm2), stabilite: Math.round(target.stability), dirigeant: target.leader.trait,
+        ...(target.wheel.s3 ? {
+          ideologie: target.wheel.s3.ideology, doctrine: target.wheel.s3.doctrine || undefined, region: target.wheel.s3.region, trait_regional: target.wheel.s3.impact,
+          armee: target.wheel.militaryClass, ressources: target.wheel.s3.resources, histoire: target.wheel.s3.background,
+          // Les services secrets d'autrui ne se laissent voir que par des services au moins aussi forts.
+          services_secrets: own || (self.wheel.s3?.secret ?? 0) >= target.wheel.s3.secret ? `${target.wheel.s3.secretName}` : 'inconnus (nos services sont trop faibles pour le savoir)',
+        } : {}) });
     case 'get_neighbor':
       return JSON.stringify(Object.keys(self.geo.neighbors).map((id) => { const o = world.nations[+id]; return { nom: o.name, statut: o.status, puissance_relative: round(o.mil.power / Math.max(1, self.mil.power)), opinion: Math.round(peekRel(world, self.id, o.id)?.opinion ?? 0) }; }));
     case 'get_relations':

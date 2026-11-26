@@ -147,7 +147,9 @@ function sheetBody(d: NationDetail): string {
       ${d.overlord >= 0 ? `<p class="alert">${d.colony ? 'Colonie' : 'Protectorat'} de ${link(d.overlord)} : verse un tribut et ne peut pas déclarer la guerre.</p>` : ''}
       ${d.wars.length ? `<p class="alert">⚔ En guerre : ${d.wars.map((w) => h(w.name)).join(', ')}</p>` : ''}
       <div class="grid">${stat('Population', big(d.pop), `${(d.popGrowth * 100).toFixed(1)} %/an`)}${stat('PIB', money(d.gdp), `${(d.gdpGrowth * 100).toFixed(1)} %/an`)}${stat('PIB / habitant', `${big(gdppc)} $`)}${stat('Stabilité', `${Math.round(d.stability)}`, 'sur 100')}${stat('IDH', d.hdi.toFixed(2))}${stat('Technologie', `${Math.round(d.tech)}`, 'sur 120')}${stat('Superficie', `${big(d.geo.areaKm2)} km²`, pct(d.geo.cells / Math.max(1, st!.rows.reduce((s, r) => s + r[5], 0)), 1) + ' des terres')}${stat('Part du PIB mondial', pct(d.gdp / Math.max(1e-6, world.gdp), 1))}${stat('Urbanisation', pct(d.urbanization / 100))}${stat('Qualité de vie', `${Math.round(d.qualityOfLife)}`, 'sur 100')}</div>
-      ${section('Tirage de la roue', `<div class="grid">${stat('Régime', h(d.wheel.government || GOV_FR[d.government]))}${stat('Économie', h(d.wheel.economy || '—'))}${stat('Classe militaire', h(d.wheel.militaryClass), `${d.wheel.militaryRating} / 11`)}${stat('Traits', d.wheel.tags.length ? d.wheel.tags.map((t) => h(TAG_FR[t] ?? t)).join(', ') : '—')}</div>`)}
+      ${section('Tirage de la roue', d.wheel.spins?.length
+        ? `<dl class="spins">${[...d.wheel.spins.reduce((m, sp) => m.set(sp.title, [...(m.get(sp.title) ?? []), sp.shown ?? sp.result]), new Map<string, string[]>())].map(([t, v]) => `<div><dt>${h(t)}</dt><dd>${h(v.join(', '))}</dd></div>`).join('')}</dl>`
+        : `<div class="grid">${stat('Régime', h(d.wheel.government || GOV_FR[d.government]))}${stat('Économie', h(d.wheel.economy || '—'))}${stat('Classe militaire', h(d.wheel.militaryClass), `${d.wheel.militaryRating} / 11`)}${stat('Traits', d.wheel.tags.length ? d.wheel.tags.map((t) => h(TAG_FR[t] ?? t)).join(', ') : '—')}</div>`)}
       ${section('Population', '<canvas class="chart" data-series="0"></canvas>')}
       ${section('Identité', `<p>Capitale <b>${h(info.capitalName)}</b> · culture ${h(d.culture)} · langue ${h(d.language)}<br>Dirigeant <b>${h(d.leader.name)}</b> (${h(TRAIT_FR[d.leader.trait])}), au pouvoir depuis ${yearOf(d.leader.since)}<br>Fondée en ${yearOf(d.foundedTick)}</p>`)}
       ${section('Géographie', `<p>${d.geo.landlocked ? 'Sans accès à la mer' : `${big(d.geo.coastlineKm)} km de côtes`} · ${Object.keys(d.geo.neighbors).length} voisin(s) · ${d.geo.parts > 1 ? `${d.geo.parts} territoires séparés` : 'territoire d\'un seul tenant'} · position stratégique ${d.geo.strategic}/100${d.climate ? ` · ${SEASON_ICON[d.climate] ?? ''} ${h(d.climate)} en ce moment (${Math.abs(d.geo.latitude) < 0.25 ? 'climat tropical, saisons peu marquées' : Math.abs(d.geo.latitude) > 0.6 ? 'hautes latitudes, hivers rudes' : 'saisons modérées'})` : ''}</p><div class="chips">${Object.entries(d.geo.terrain).filter(([k, v]) => k !== 'ocean' && v > 0.04).sort((a, b) => b[1] - a[1]).map(([k, v]) => chip(`${TERRAIN_FR[k]} ${pct(v)}`)).join('')}</div>`)}`;
@@ -278,7 +280,7 @@ function settingsHtml(): string {
   const c = init!.config;
   const l = st!.llm;
   return `${section('Partie', `<form data-form="new" class="form">
-      <label>Monde<select name="roster"><option value="random">Nations tirées à la roue</option><option value="season1" ${c.roster === 'season1' ? 'selected' : ''}>Saison 1 de Nation Wheel (103 nations du wiki)</option></select></label>
+      <label>Monde<select name="roster"><option value="season3">Roues de la saison 3 de Nation Wheel</option><option value="random" ${c.roster === 'random' ? 'selected' : ''}>Anciennes roues du simulateur</option><option value="season1" ${c.roster === 'season1' ? 'selected' : ''}>Saison 1 de Nation Wheel (103 nations du wiki)</option></select></label>
       <label>Nombre de nations<input name="nations" type="number" inputmode="numeric" min="2" max="500" value="${c.nations}"></label>
       <label>Graine du monde<input name="seed" type="number" inputmode="numeric" value="${c.seed}"></label>
       <label>Taille de la carte<select name="size"><option value="80x45">Petite</option><option value="120x68" ${c.width === 120 ? 'selected' : ''}>Moyenne</option><option value="160x90" ${c.width === 160 ? 'selected' : ''}>Grande</option><option value="240x135" ${c.width === 240 ? 'selected' : ''}>Très grande</option></select></label>
@@ -410,6 +412,47 @@ function showHistory(): void {
   map.invalidate();
 }
 
+// ---------- Menu de la partie ----------
+const menu = { open: false, wasRunning: false, confirm: '' };
+/** Un nouveau monde doit remontrer son tirage, même avec des réglages déjà vus. */
+function forgetDraws(): void {
+  try { for (let i = sessionStorage.length - 1; i >= 0; i--) { const k = sessionStorage.key(i); if (k?.startsWith('draw:')) sessionStorage.removeItem(k); } } catch { /* stockage indisponible */ }
+}
+function renderMenu(): void {
+  const el = $('#menu');
+  el.hidden = !menu.open;
+  if (!menu.open || !st || !init) return;
+  const c = init.config;
+  const started = st.tick > 0;
+  // Recommencer efface la partie : le bouton demande une confirmation avant d'agir.
+  const danger = (act: string, label: string, hint: string) => menu.confirm === act
+    ? `<button data-act="${act}" class="danger"><b>Confirmer : la partie en cours sera perdue</b><small>Touchez encore pour valider</small></button>`
+    : `<button data-act="${act}"><b>${label}</b><small>${hint}</small></button>`;
+  el.innerHTML = `<div class="menu-card" role="dialog" aria-modal="true" aria-label="Menu de la partie">
+    <header><div><h2>Partie en pause</h2><small>${h(st.date)} · ${st.world.alive} nations · graine ${h(c.seed)}</small></div><button data-act="menu-close" aria-label="Fermer">✕</button></header>
+    <div class="menu">
+      <button data-act="menu-resume" class="on"><b>▶ ${started ? 'Reprendre' : 'Commencer la partie'}</b></button>
+      ${danger('menu-restart', '↺ Recommencer cette partie', 'Même monde, même tirage, depuis le début')}
+      ${danger('menu-random', '🎲 Nouvelle partie', 'Mêmes réglages, autre monde tiré au hasard')}
+      <button data-act="menu-settings"><b>⚙ Régler un nouveau monde</b><small>Nombre de nations, carte, saison 1, sauvegardes</small></button>
+      <button data-act="menu-wheels"><b>🎡 Tirage des roues</b><small>Revoir le tirage de chaque nation</small></button>
+    </div></div>`;
+}
+async function openMenu(): Promise<void> {
+  if (!st) return;
+  menu.open = true; menu.confirm = ''; menu.wasRunning = st.running;
+  if (st.running) await client.cmd({ type: 'pause' });
+  renderMenu();
+}
+function closeMenu(): void { menu.open = false; menu.confirm = ''; renderMenu(); }
+async function restart(seed?: number): Promise<void> {
+  const config = { ...init!.config, ...(seed === undefined ? {} : { seed }) };
+  forgetDraws();
+  closeMenu();
+  openPanel(null);
+  await run(client.cmd({ type: 'new', config }), seed === undefined ? 'Partie recommencée.' : 'Nouveau monde créé.');
+}
+
 // ---------- Tirage des roues ----------
 /** Signature du monde : le tirage ne se rouvre pas tout seul une fois vu ou passé. */
 const worldKey = () => `draw:${JSON.stringify(init?.config ?? {})}`;
@@ -453,6 +496,7 @@ function onMessage(m: InitMsg | StateMsg): void {
   syncMap();
   legend();
   if (fresh) maybeShowDraw();
+  if (menu.open && fresh) renderMenu();
   const now = performance.now();
   if (now - ui.lastPanelRender > 700) {
     ui.lastPanelRender = now;
@@ -485,6 +529,7 @@ const admin = async (command: Record<string, unknown>, ok: string) => {
 };
 
 document.addEventListener('click', async (ev) => {
+  if ((ev.target as HTMLElement).id === 'menu') { closeMenu(); return; }
   const el = (ev.target as HTMLElement).closest<HTMLElement>('[data-act]');
   if (!el || el.tagName === 'SELECT' || (el.tagName === 'INPUT' && (el as HTMLInputElement).type !== 'checkbox')) return;
   const id = el.dataset.id ?? '';
@@ -493,6 +538,15 @@ document.addEventListener('click', async (ev) => {
     case 'play': await client.cmd({ type: st!.running ? 'pause' : 'play' }); break;
     case 'step': await client.cmd({ type: 'step' }); break;
     case 'speed': { const speeds = [1, 2, 5, 12, 30, 1000]; await client.cmd({ type: 'speed', value: speeds[(speeds.indexOf(st!.speed) + 1) % speeds.length] }); break; }
+    case 'menu': await openMenu(); break;
+    case 'menu-close': closeMenu(); break;
+    case 'menu-resume': closeMenu(); await client.cmd({ type: 'play' }); break;
+    case 'menu-restart': case 'menu-random':
+      if (menu.confirm !== el.dataset.act && st!.tick > 0) { menu.confirm = el.dataset.act!; renderMenu(); break; }
+      await restart(el.dataset.act === 'menu-random' ? Math.floor(Math.random() * 1e6) : undefined);
+      break;
+    case 'menu-settings': closeMenu(); openPanel('parametres'); break;
+    case 'menu-wheels': closeMenu(); await showDraw(); break;
     case 'panel': if (id === 'roues') { openPanel(null); await showDraw(); } else openPanel(id === 'carte' ? null : id); break;
     case 'close-panel': openPanel(null); break;
     case 'peek-map': $('#panel').classList.toggle('peek'); break;
@@ -547,7 +601,7 @@ document.addEventListener('submit', async (ev) => {
   const form = ev.target as HTMLFormElement;
   const f = Object.fromEntries(new FormData(form)) as Record<string, string>;
   if (form.dataset.form === 'new') {
-    try { for (let i = sessionStorage.length - 1; i >= 0; i--) { const k = sessionStorage.key(i); if (k?.startsWith('draw:')) sessionStorage.removeItem(k); } } catch { /* stockage indisponible */ }
+    forgetDraws();
     openPanel(null);
     await run(client.cmd({ type: 'new', config: formConfig(form) }), 'Nouveau monde créé.');
   } else if (form.dataset.form === 'save') { await run(client.save(f.name.trim()), 'Partie sauvegardée.'); renderPanel(true); }

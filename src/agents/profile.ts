@@ -6,6 +6,7 @@ import { peekRel } from '../engine/diplomacy';
 import { clamp } from '../engine/rng';
 import { enemiesOf } from '../engine/war';
 import { TAG_FR } from '../engine/wheel';
+import { greatKind } from '../data/wheels3';
 import { PREF_KEYS, type Government, type Ideology, type Nation, type Preferences, type World } from '../engine/types';
 
 export const GOV_FR: Record<Government, string> = {
@@ -76,6 +77,7 @@ export function background(world: World, n: Nation, s = surroundings(world, n)):
   tags.push(n.wheel.government ? `${n.wheel.government} (${IDEO_FR[n.ideology]})` : `${GOV_FR[n.government]} ${IDEO_FR[n.ideology]}`);
   if (n.overlord >= 0) tags.push(`${n.colony ? 'colonie' : 'protectorat'} de ${world.nations[n.overlord].name}`);
   if (n.wheel.economy) tags.push(`économie : ${n.wheel.economy}`);
+  if (n.wheel.s3) tags.push(`idéologie ${n.wheel.s3.ideology}`, `région ${n.wheel.s3.region}`);
   for (const t of n.wheel.tags) tags.push(TAG_FR[t] ?? t);
   tags.push(n.tech < 25 ? 'économie agraire' : n.tech < 45 ? 'en développement' : n.tech < 65 ? 'industrialisé' : n.tech < 80 ? 'technologie avancée' : 'technologie de pointe');
   if (n.education > 75) tags.push('très haut niveau d\'éducation');
@@ -124,6 +126,43 @@ const TRAIT: Record<string, Partial<Preferences>> = {
   reformer: { welfare: 6, science: 6 },
 };
 
+// Saison 3 : ce que les roues de Nation Wheel ajoutent à la personnalité.
+const S3_IDEOLOGY: Record<string, Partial<Preferences>> = {
+  Democracy: { diplomacy: 8, trade: 5, offensive: -6 }, Monarchy: { defense: 5, risk: -4 }, Communism: { industry: 8, welfare: 6 },
+  Authoritarianism: { defense: 6, diplomacy: -6 }, Imperialism: { expansion: 12, offensive: 8, navy: 4 }, 'Military Rule': { offensive: 8, defense: 8, welfare: -5 },
+  Theocracy: { risk: 6, science: -5 }, Tribalism: { defense: 6, trade: -5, expansion: 4 }, Colony: { offensive: -10, expansion: -10 }, Anarchism: { diplomacy: -8, welfare: 8, offensive: -8 },
+};
+/** Mots d'un libellé tiré (doctrine, impact régional, histoire) et penchant qu'ils nourrissent. */
+const S3_WORDS: [RegExp, Partial<Preferences>][] = [
+  [/Merchant|Trade|Guild|Agorism|Capitalism|Corporate|spice|amber|salt|coin|credit|stock exchange|tea trade|ports|Toll|Market|Banking|Commercial|Silk/i, { trade: 10 }],
+  [/Maritime|Naval|navy|fleet|Circumnavigated|seas|waves|whales|shipwrecked|lighthouse|Archipelago/i, { navy: 12 }],
+  [/Fortress|Garrison|Defense|Security|Police|great wall|fortresses|siege|Held the border|Repelled|Resisted|Citadel|Fortified|Resistance|Sanctuary|Defensive/i, { defense: 10, offensive: -3 }],
+  [/Conquest|Expansionist|Frontier|Horde|Migration|Warrior|Iron Legion|Permanent Revolution|Universal|Sacked|Reconquered|Conquering|Shock|Aggressive|Booty|Total War|Revanchism/i, { expansion: 8, offensive: 8 }],
+  [/Technocracy|Enlightenment|astronomical|printing|telegraph|metric|alphabet|academy|newspaper|library|university|clock|vaccinat|Intellectual|Patent|Genius/i, { science: 10 }],
+  [/Workers|Collective|Agrarian|Commune|Syndicalism|Mutualism|Commonwealth|refugees|serfdom|slavery|charter of liberties|peasant/i, { welfare: 8 }],
+  [/Pacifism|Jury|Direct Democracy|Popular Assembly|Green|Disbanded its army|humiliating peace|Lethargy|Isolationist/i, { offensive: -10, diplomacy: 5 }],
+  [/Federa|Coalition|Council|International|league|union with|Crossroads|Diplomacy|Support|Cosmopolitan/i, { diplomacy: 8 }],
+  [/Secret|Cult|Paranoia|Purges|dictatorship|tyran|Espionage/i, { risk: 5, diplomacy: -5 }],
+  [/Industrial|furnace|railway|canal|aqueduct|Factories|Metallurg|Production|Arsenal/i, { industry: 8 }],
+];
+const GREAT_PREFS: Record<string, Partial<Preferences>> = {
+  military: { offensive: 5, defense: 5 }, science: { science: 8 }, industry: { industry: 8 }, explorer: { navy: 5, expansion: 5 }, arts: { welfare: 5, diplomacy: 3 }, state: { diplomacy: 8 },
+};
+function s3Preferences(s3: NonNullable<Nation['wheel']['s3']>): Partial<Preferences> {
+  const out: Partial<Preferences> = {};
+  const add = (m: Partial<Preferences> | undefined, k = 1) => { if (m) for (const key of PREF_KEYS) if (m[key]) out[key] = (out[key] ?? 0) + m[key]! * k; };
+  const words = (label: string, k: number) => { for (const [re, m] of S3_WORDS) if (re.test(label)) add(m, k); };
+  add(S3_IDEOLOGY[s3.ideology]);
+  words(s3.doctrine, 1);
+  // Un malus régional pèse à l'envers : une « faiblesse navale » détourne de la mer.
+  words(s3.impact, 0.7 * s3.impactSign);
+  words(s3.background, 0.6);
+  if (s3.great) add(GREAT_PREFS[greatKind(s3.great)]);
+  // Des services secrets puissants rendent plus hardi, des services absents plus prudent.
+  add({ risk: (s3.secret - 5) * 1.5 });
+  return out;
+}
+
 const TAG_PREFS: Record<string, Partial<Preferences>> = {
   maritime: { navy: 20, trade: 8 }, cyber: { science: 12, industry: 5 }, democratic: { diplomacy: 8, welfare: 5 }, wealthy: { trade: 12 },
   green: { welfare: 8, industry: -5 }, pacifist: { offensive: -25, diplomacy: 10 }, expansionist: { expansion: 15, offensive: 8 },
@@ -154,6 +193,7 @@ export function preferences(world: World, n: Nation, s = surroundings(world, n))
     industry: n.tech > 30 && n.tech < 65 ? 10 : 0,
   });
   for (const t of n.wheel.tags) add(TAG_PREFS[t]);
+  if (n.wheel.s3) add(s3Preferences(n.wheel.s3));
   if (n.overlord >= 0) add({ offensive: -20, expansion: -15, defense: -5 });
   for (const k of PREF_KEYS) p[k] = Math.round(clamp(p[k] + n.mind.quirks[k] + n.mind.drift[k], 0, 100));
   return p;

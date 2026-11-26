@@ -11,7 +11,7 @@ export interface AppConfig {
 }
 
 export const DEFAULT_APP_CONFIG: AppConfig = {
-  simulation: { tick_duration: 'month', max_nations: 500, nations: 50, seed: 1, roster: 'random', map_style: 'continents', land_fraction: 0.36, climate: 'temperate', climate_seasons: true, season_years: 30, map_width: 160, map_height: 90, start_year: 1800 },
+  simulation: { tick_duration: 'month', max_nations: 500, nations: 50, seed: 1, roster: 'season3', map_style: 'continents', land_fraction: 0.36, climate: 'temperate', climate_seasons: true, season_years: 30, map_width: 160, map_height: 90, start_year: 1800 },
   // model/runtime « auto » : détection du matériel et du runtime au lancement. 0 = automatique.
   llm: { enabled: true, provider: 'local', model: 'auto', runtime: 'auto', base_url: '', family: 'qwen3.5', tools: true, timeout_ms: 60000, fast_model: '', national_model: '', strategic_model: '' },
   decision: { llm_frequency: 'adaptive', strategic_threshold: 0.8, national_threshold: 0.6, fast_threshold: 0.35, max_calls_per_tick: 0 },

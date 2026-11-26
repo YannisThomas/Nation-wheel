@@ -16,7 +16,7 @@
   <button id="play" data-act="play" aria-label="Lecture">▶</button>
   <button data-act="step" aria-label="Avancer d'un mois">⏭</button>
   <button id="speed" data-act="speed" aria-label="Vitesse">2×</button>
-  <button data-act="panel" data-id="roues" aria-label="Tirage des roues" title="Tirage des roues">🎡</button>
+  <button data-act="menu" aria-label="Menu de la partie" title="Menu de la partie">⏹</button>
   <div class="when"><b id="date">…</b><small id="summary">Chargement du monde…</small></div>
   <span id="llm">Sans LLM</span>
 </header>
@@ -53,6 +53,7 @@
   <button data-act="panel" data-id="evenements"><span>📜</span>Événements</button>
   <button data-act="panel" data-id="plus"><span>☰</span>Plus</button>
 </nav>
+<section id="menu" hidden aria-label="Menu de la partie"></section>
 <section id="draw" hidden aria-label="Tirage des roues"></section>
 <input type="file" id="file" accept="application/json,.json" hidden>
 <script src="app.js"></script>

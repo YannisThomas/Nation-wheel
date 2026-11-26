@@ -31,8 +31,8 @@ export type MapStyle = (typeof MAP_STYLES)[number];
 
 export interface SimConfig {
   seed: number;
-  /** random : nations tirées à la roue ; season1 : les nations de la saison 1 du wiki Nation Wheel. */
-  roster: 'random' | 'season1';
+  /** season3 : roues de la saison 3 de Nation Wheel ; random : anciennes listes du simulateur ; season1 : les nations de la saison 1 du wiki. */
+  roster: 'random' | 'season1' | 'season3';
   mapStyle: MapStyle;
   climate: 'cold' | 'temperate' | 'hot';
   /** Relief et richesse du sous-sol : 0 = peu, 1 = normal, 2 = beaucoup. */
@@ -225,6 +225,47 @@ export interface Wheel {
   bloc: string;
   /** Statut de départ tiré à la roue ; absent pour les nations nées en cours de partie. */
   start?: WheelStart;
+  /** Saison 3 : région tirée et suite complète des roues, dans l'ordre du tirage. */
+  region?: string;
+  spins?: WheelSpin[];
+  /** Saison 3 : résultats du tirage que le moteur et les agents utilisent en cours de partie. */
+  s3?: S3Draw;
+}
+
+export interface S3Draw {
+  ideology: string;
+  /** Vide pour une colonie. */
+  doctrine: string;
+  region: string;
+  /** Impact régional et son sens : 1 bonus, -1 malus, 0 neutre. */
+  impact: string;
+  impactSign: number;
+  resources: string[];
+  /** Valeur économique des ressources tirées qui ne sont pas des gisements de la carte. */
+  materials: number;
+  army: string;
+  specialization: string;
+  /** Niveau des services secrets, de 1 à 10. */
+  secret: number;
+  secretName: string;
+  background: string;
+  great: string;
+}
+
+/** Une roue tirée pour une nation : de quoi la rejouer à l'écran. */
+export interface WheelSpin {
+  /** Identifiant de la roue dans WheelDraws.pools ; ignoré si options est fourni. */
+  pool: string;
+  title: string;
+  sub?: string;
+  /** Segment sur lequel la roue s'arrête. */
+  result: string;
+  /** Texte affiché une fois la roue arrêtée, s'il diffère du segment. */
+  shown?: string;
+  /** Roue propre à cette nation (par exemple la liste des empires existants). */
+  options?: string[];
+  /** Place dans le récapitulatif : 1 = sous le nom, 2 = étiquette. */
+  recap?: 1 | 2;
 }
 
 export type StartKind = 'none' | 'colony' | 'protectorate' | 'overlord' | 'rival' | 'tension' | 'allied' | 'trade' | 'pariah' | 'war';

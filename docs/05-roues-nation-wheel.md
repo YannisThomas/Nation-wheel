@@ -322,6 +322,27 @@ Plusieurs centaines de segments fins, par catégories. Lisible en partie seuleme
 - **Artists** : Epic Novelist, Court Composer, Monument Sculptor, Revolutionary Playwright, Folk Song Collector, Cinema Pioneer, Poster Art Master, Cathedral Architect
 - **Statesmen and thinkers** : Constitutional Jurist, Land Reform Minister, Founder of the Central Bank, Peace Treaty Negotiator, Public School Reformer, Census Statistician, Free Press Champion, Diplomat of the Century
 
+## Dans le simulateur
+
+Le mode « Roues de la saison 3 » (par défaut) tire ces roues à la création du monde. Ce que chacune fait :
+
+| Roue | Effet dans le simulateur |
+|---|---|
+| Country Size | Part de la carte. L'écart est atténué (racine carrée) pour que les petites nations existent ; un quart des terres reste libre |
+| Population, GDP, HDI | Valeurs de départ. Le PIB fixe le niveau technologique, l'IDH règle santé et éducation, dans la limite de ce que le moteur sait produire |
+| Ideology, Political Doctrine | Régime et idéologie du moteur, budget, personnalité. Retirées quand le régime change en cours de partie |
+| Colony | La nation devient colonie d'une des cinq nations souveraines les plus fortes du monde créé (et non des empires des vidéos) ; l'autorité coloniale règle sa stabilité |
+| Region | Huit zones de la carte générée, nommées au hasard : la roue s'arrête sur la zone où se trouve la nation |
+| Regional Impact | Bonus ou malus de départ, déduit des mots du libellé (marine, industrie, technologie, économie, logistique, population, armée, stabilité). Pèse aussi sur la personnalité |
+| Are you landlocked? | S'arrête sur ce que montre la carte |
+| Resources | 1 à 5 tirages selon la taille. Pétrole, gaz, charbon, fer, cuivre, or, terres rares et uranium deviennent des gisements sur la carte ; les autres matières comptent dans la production ; Dirt, Salt water et Rotten timber ne valent rien |
+| Army, Specialization | Puissance militaire de départ et répartition terre / air / mer |
+| Active-duty personnel | Effectifs, plafonnés à 3 % de la population |
+| Secret Services | Stabilité (un point par niveau d'écart avec 5, environ), goût du risque, et ce que la nation peut apprendre des services des autres |
+| Background, Great People | Personnalité, petit avantage de départ pour la grande figure, et texte donné au LLM |
+
+Les pondérations des roues « boosted by » sont des approximations : la règle exacte n'est pas connue.
+
 ## Ce qui reste inconnu
 
 - Le contenu des roues Background et Great People au-delà des segments listés.

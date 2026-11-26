@@ -2,7 +2,8 @@
 // Le tirage a déjà eu lieu à la création du monde (le moteur reste seul maître
 // du hasard) : chaque roue tourne puis s'arrête sur le résultat réellement tiré.
 
-import { NO_TRAIT, ratingLabel, type WheelDraw, type WheelDraws } from '../../src/engine/wheel';
+import type { WheelDraws, WheelPool } from '../../src/engine/wheel';
+import type { WheelSpin } from '../../src/engine/types';
 
 export interface DrawNation { name: string; flag: string }
 export interface DrawOptions {
@@ -14,11 +15,10 @@ export interface DrawOptions {
 }
 
 interface Segment { label: string; weight: number }
-interface Spin { key: string; title: string; segments: Segment[]; result: string; shown: string }
+interface Spin { title: string; sub: string; segments: Segment[]; result: string; shown: string; scale: boolean }
 
 const h = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
-const MAX_SEGMENTS = 12;
-const SLOTS: [string, string][] = [['government', 'Régime'], ['economy', 'Économie'], ['rating', 'Classe militaire'], ['trait', 'Traits'], ['start', 'Statut de départ']];
+const MAX_SAMPLE = 12;
 const SPEEDS = [1, 2, 4, 8];
 const TONES = ['#2a323c', '#3a4553', '#323b47'];
 
@@ -28,31 +28,22 @@ function seeded(seed: number): () => number {
   return () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
 }
 
-/** Une roue lisible : le résultat et quelques autres possibilités de la même roue. */
-function sample(pool: string[], result: string, rnd: () => number): Segment[] {
-  const others = pool.filter((x) => x !== result);
+/** Roue trop fournie pour être lisible : le résultat et quelques autres possibilités de la même roue. */
+function sample(pool: Segment[], result: string, rnd: () => number): Segment[] {
+  const others = pool.filter((x) => x.label !== result);
   for (let i = others.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [others[i], others[j]] = [others[j], others[i]]; }
-  const labels = others.slice(0, MAX_SEGMENTS - 1);
-  labels.splice(Math.floor(rnd() * (labels.length + 1)), 0, result);
-  return labels.map((label) => ({ label, weight: 1 }));
+  const out = others.slice(0, MAX_SAMPLE - 1).map((s) => ({ label: s.label, weight: 1 }));
+  out.splice(Math.floor(rnd() * (out.length + 1)), 0, { label: result, weight: 1 });
+  return out;
 }
 
-function weighted(pool: [string, number][], result: string): Segment[] {
-  const segments = pool.map(([label, weight]) => ({ label, weight }));
-  // Un résultat absent de la roue (note recalculée après le tirage) y reçoit une petite part.
-  if (!segments.some((s) => s.label === result)) segments.push({ label: result, weight: Math.max(1, segments.reduce((a, s) => a + s.weight, 0) * 0.04) });
-  return segments;
-}
-
-function spinsFor(d: WheelDraw, pools: WheelDraws['pools']): Spin[] {
-  const rnd = seeded(d.id + 1);
-  const spins: Spin[] = [];
-  if (d.government) spins.push({ key: 'government', title: 'Régime', segments: sample(pools.government, d.government, rnd), result: d.government, shown: d.government });
-  if (d.economy) spins.push({ key: 'economy', title: 'Économie', segments: sample(pools.economy, d.economy, rnd), result: d.economy, shown: d.economy });
-  spins.push({ key: 'rating', title: 'Classe militaire', segments: weighted(pools.rating, ratingLabel(d.rating)), result: ratingLabel(d.rating), shown: `${d.militaryClass} · ${ratingLabel(d.rating)}` });
-  for (const t of d.tags.length ? d.tags : [NO_TRAIT]) spins.push({ key: 'trait', title: 'Trait', segments: sample(pools.trait, t, rnd), result: t, shown: t });
-  if (d.start) spins.push({ key: 'start', title: 'Statut de départ', segments: weighted(pools.start, d.start.segment), result: d.start.segment, shown: d.start.text });
-  return spins;
+function toSpin(sp: WheelSpin, pools: Record<string, WheelPool>, rnd: () => number): Spin {
+  const pool: WheelPool = sp.options ? { segments: sp.options.map((l) => [l, 1]) } : pools[sp.pool] ?? { segments: [[sp.result, 1]] };
+  let segments = pool.segments.map(([label, weight]) => ({ label, weight }));
+  if (pool.sample && segments.length > MAX_SAMPLE) segments = sample(segments, sp.result, rnd);
+  // Un résultat absent de la roue (valeur recalculée après le tirage) y reçoit une petite part.
+  if (!segments.some((s) => s.label === sp.result)) segments.push({ label: sp.result, weight: Math.max(0.05, segments.reduce((a, s) => a + s.weight, 0) * 0.04) });
+  return { title: sp.title, sub: sp.sub ?? '', segments, result: sp.result, shown: sp.shown ?? sp.result, scale: !!pool.scale };
 }
 
 const R = 140;
@@ -69,13 +60,15 @@ function wheelSvg(spin: Spin): { svg: string; center: number; width: number } {
     const a1 = a0 + span;
     const win = s.label === spin.result;
     if (win) { center = a0 + span / 2; width = span; }
-    const tone = n % 2 && i === n - 1 ? TONES[2] : TONES[i % 2];
+    // Échelles de valeurs : dégradé continu, comme sur les roues de Nation Wheel. Sinon deux tons alternés.
+    const tone = spin.scale ? `hsl(${Math.round(150 - (300 * i) / Math.max(1, n - 1))} 38% ${i % 2 ? 27 : 31}%)` : n % 2 && i === n - 1 ? TONES[2] : TONES[i % 2];
     parts += n === 1 ? `<circle r="${R}" fill="${tone}" ${win ? 'data-win' : ''}/>` : `<path d="M0 0 L${at(a0)} A${R} ${R} 0 ${span > 180 ? 1 : 0} 1 ${at(a1)} Z" fill="${tone}" ${win ? 'data-win' : ''}/>`;
-    // Le texte suit le rayon ; les segments trop étroits pour un libellé lisible restent muets.
-    if (span >= 5.5) labels += `<text transform="rotate(${(a0 + span / 2 - 90).toFixed(2)})" x="${R - 9}" y="3.6" ${win ? 'data-win' : ''}>${h(short(s.label, span < 14 ? 9 : 18))}</text>`;
+    // Le texte suit le rayon. Les segments trop fins restent muets, sauf le gagnant, révélé à l'arrêt.
+    const size = span >= 9 ? 10.5 : span >= 5 ? 8.5 : 7;
+    if (span >= 3.2 || win) labels += `<text transform="rotate(${(a0 + span / 2 - 90).toFixed(2)})" x="${R - 7}" y="${(size * 0.34).toFixed(1)}" font-size="${size}" ${win ? 'data-win' : ''} ${span < 3.2 ? 'data-thin' : ''}>${h(short(s.label, span < 14 ? 15 : 20))}</text>`;
     a0 = a1;
   });
-  const svg = `<svg viewBox="-150 -158 300 308" role="img" aria-label="Roue : ${h(spin.title)}">
+  const svg = `<svg viewBox="-150 -158 300 308" role="img" aria-label="Roue : ${h(spin.title)}" class="${n > 40 ? 'dense' : ''}">
     <g class="rot"><g class="segs">${parts}</g><g class="labels">${labels}</g></g>
     <circle r="24" class="hub"/><path class="pointer" d="M-11 -157 H11 L0 -134 Z"/></svg>`;
   return { svg, center, width };
@@ -85,8 +78,9 @@ export function openDraw(root: HTMLElement, opts: DrawOptions): void {
   const { data } = opts;
   const draws = data.draws;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const state = { nation: 0, step: 0, auto: true, speed: 0, token: 0, spinning: false, done: [] as string[][], recap: false };
-  let spins = draws.length ? spinsFor(draws[0], data.pools) : [];
+  const state = { nation: 0, step: 0, auto: true, speed: 0, token: 0, spinning: false, done: 0, recap: false };
+  const spinsOf = (i: number) => { const rnd = seeded(draws[i].id + 1); return draws[i].spins.map((sp) => toSpin(sp, data.pools, rnd)); };
+  let spins = draws.length ? spinsOf(0) : [];
   let timer = 0;
 
   root.hidden = false;
@@ -95,12 +89,12 @@ export function openDraw(root: HTMLElement, opts: DrawOptions): void {
     <div class="draw-main">
       <div class="draw-stage">
         <div class="draw-nation" data-el="nation"></div>
-        <b class="draw-title" data-el="title"></b>
+        <div class="draw-heading"><b class="draw-title" data-el="title"></b><small data-el="sub"></small></div>
         <div class="draw-wheel" data-el="wheel" data-draw="skip" aria-live="off"></div>
         <p class="draw-result" data-el="result" aria-live="polite"></p>
       </div>
       <div class="draw-side">
-        <div class="draw-slots" data-el="slots"></div>
+        <dl class="draw-slots" data-el="slots"></dl>
         <div class="buttons draw-controls">
           <button data-draw="auto" data-el="auto"></button>
           <button data-draw="speed" data-el="speed"></button>
@@ -111,19 +105,22 @@ export function openDraw(root: HTMLElement, opts: DrawOptions): void {
     <div class="draw-recap scroll" data-el="recap" hidden></div>`;
   const el = (name: string) => root.querySelector<HTMLElement>(`[data-el="${name}"]`)!;
 
+  /** Résultats de la nation en cours, une ligne par roue (les roues tirées plusieurs fois sont regroupées). */
   const slots = () => {
-    const done = state.done;
-    el('slots').innerHTML = SLOTS.filter(([k]) => spins.some((s) => s.key === k)).map(([k, label]) => {
-      const values = spins.map((s, i) => (s.key === k && done[state.nation]?.[i] ? s.shown : null)).filter((v): v is string => v !== null);
-      return `<div class="stat ${values.length ? '' : 'pending'}"><span>${label}</span><b>${values.length ? h(values.join(', ')) : '…'}</b></div>`;
-    }).join('');
+    // Seules les roues déjà tirées sont listées : les titres à venir trahiraient la région ou l'idéologie.
+    const rows = new Map<string, string[]>();
+    spins.slice(0, state.done).forEach((s) => rows.set(s.title, [...(rows.get(s.title) ?? []), s.shown]));
+    const box = el('slots');
+    box.innerHTML = rows.size ? [...rows.entries()].map(([title, values]) => `<div><dt>${h(title)}</dt><dd>${h(values.join(', '))}</dd></div>`).join('')
+      : '<div class="pending"><dt>Résultats</dt><dd>…</dd></div>';
+    box.scrollTop = box.scrollHeight;
   };
   const controls = () => {
     el('auto').textContent = state.auto ? '⏸ Pause' : '▶ Tirage automatique';
     el('speed').textContent = `Vitesse ${SPEEDS[state.speed]}×`;
     const last = state.nation >= draws.length - 1;
     el('next').textContent = state.step < spins.length ? (state.auto ? 'Nation suivante ⏭' : 'Tourner la roue') : last ? 'Voir le récapitulatif' : 'Nation suivante ⏭';
-    el('count').textContent = `Nation ${state.nation + 1} sur ${draws.length}`;
+    el('count').textContent = `Nation ${state.nation + 1} sur ${draws.length} · roue ${Math.min(state.step + 1, spins.length)} sur ${spins.length}`;
   };
 
   /** Marque la roue courante comme tirée et affiche son résultat. */
@@ -131,10 +128,10 @@ export function openDraw(root: HTMLElement, opts: DrawOptions): void {
     const s = spins[state.step];
     if (!s) return;
     state.spinning = false;
-    (state.done[state.nation] ??= [])[state.step] = s.shown;
     el('wheel').classList.add('landed');
     el('result').textContent = s.shown;
     state.step++;
+    state.done = state.step;
     slots(); controls();
   };
 
@@ -146,6 +143,7 @@ export function openDraw(root: HTMLElement, opts: DrawOptions): void {
     box.classList.remove('landed');
     box.innerHTML = w.svg;
     el('title').textContent = s.title;
+    el('sub').textContent = s.sub;
     el('result').textContent = ' ';
     return w;
   };
@@ -188,8 +186,8 @@ export function openDraw(root: HTMLElement, opts: DrawOptions): void {
   const showNation = (i: number) => {
     clearTimeout(timer);
     state.token++;
-    state.nation = i; state.step = 0; state.spinning = false;
-    spins = spinsFor(draws[i], data.pools);
+    state.nation = i; state.step = 0; state.done = 0; state.spinning = false;
+    spins = spinsOf(i);
     const n = opts.nation(draws[i].id);
     el('nation').innerHTML = `${n.flag}<b>${n.name}</b>`;
     slots();
@@ -206,8 +204,10 @@ export function openDraw(root: HTMLElement, opts: DrawOptions): void {
     box.hidden = false;
     box.innerHTML = `<ol class="draw-list">${draws.map((d) => {
       const n = opts.nation(d.id);
-      const chips = [`${d.militaryClass} · ${ratingLabel(d.rating)}`, ...d.tags, ...(d.start ? [d.start.text] : [])];
-      return `<li>${n.flag}<div><b>${n.name}</b><small>${h([d.government, d.economy].filter(Boolean).join(' · ') || '—')}</small><div class="chips">${chips.map((c) => `<span class="chip">${h(c)}</span>`).join('')}</div></div></li>`;
+      const text = (sp: WheelSpin) => sp.shown ?? sp.result;
+      const line = d.spins.filter((sp) => sp.recap === 1).map(text);
+      const chips = d.spins.filter((sp) => sp.recap === 2).map(text);
+      return `<li>${n.flag}<div><b>${n.name}</b><small>${h(line.join(' · ') || '—')}</small><div class="chips">${chips.map((c) => `<span class="chip">${h(c)}</span>`).join('')}</div></div></li>`;
     }).join('')}</ol>
     <div class="draw-end"><button data-draw="close">Voir la carte</button><button data-draw="play" class="on">▶ Commencer la partie</button></div>`;
     box.scrollTop = 0;

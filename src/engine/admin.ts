@@ -2,6 +2,7 @@
 // appliquée par le moteur et inscrite au journal avec la marque « admin ».
 
 import { getRel, signTreaty } from './diplomacy';
+import { redrawDoctrine } from './doctrine';
 import { addJournal } from './journal';
 import { OCEAN } from './map';
 import { clamp } from './rng';
@@ -35,7 +36,7 @@ export function adminCommand(world: World, c: AdminCommand): string | null {
       const done: string[] = [];
       for (const [k, v] of Object.entries(c.patch)) {
         if (k === 'name' && typeof v === 'string' && v.trim() && v.length <= 40) { n.name = v.trim(); done.push('nom'); }
-        else if (k === 'government' && (GOVERNMENTS as readonly string[]).includes(v as string)) { n.government = v as Nation['government']; n.wheel.government = ''; done.push('gouvernement'); }
+        else if (k === 'government' && (GOVERNMENTS as readonly string[]).includes(v as string)) { n.government = v as Nation['government']; n.wheel.government = ''; redrawDoctrine(world, n); done.push('gouvernement'); }
         else if (k === 'ideology' && (IDEOLOGIES as readonly string[]).includes(v as string)) { n.ideology = v as Nation['ideology']; done.push('idéologie'); }
         else if (k === 'leaderTrait' && (LEADER_TRAITS as readonly string[]).includes(v as string)) { n.leader = { ...n.leader, trait: v as Nation['leader']['trait'], since: world.tick }; done.push('dirigeant'); }
         else if (k === 'army' && typeof v === 'number' && Number.isFinite(v)) { n.mil.army = clamp(v, 0, 1e6); done.push('armée'); }
