@@ -12,7 +12,7 @@ Le projet doit tourner dans trois modes : sur un PC (accès depuis le téléphon
                                              │ même protocole de messages
                         ┌────────────────────┴────────────────────┐
                         ▼                                         ▼
-              WebSocket vers un serveur Node            Web Worker dans le navigateur
+              HTTP + SSE vers un serveur Node           Web Worker dans le navigateur
               (PC local ou serveur personnel)           (mode mobile autonome)
                         └────────────────────┬────────────────────┘
                                              ▼
@@ -78,19 +78,20 @@ Grille hexagonale de cellules (160×90 par défaut, configurable). Chaque cellul
 |---|---|---|
 | Langage | TypeScript partout | Un moteur pour Node et navigateur |
 | Moteur | Zéro dépendance | Portable, testable, rapide (10 000 ticks × 100 nations ≈ 1,3 s) |
-| Serveur | Node + WebSocket | Sert la PWA et héberge la simulation |
-| Interface | Vite + Preact + Canvas 2D | Léger sur mobile, PWA installable |
-| LLM mobile autonome | WebLLM (WebGPU) avec petit modèle, optionnel | Seule voie locale dans un navigateur |
+| Serveur | Node, sans dépendance : flux d'événements (SSE) + commandes HTTP | Sert la PWA et héberge la simulation |
+| Interface | TypeScript sans framework + Canvas 2D, assemblé par esbuild | 49 Ko, PWA installable |
+| LLM en mode mobile autonome | Connexion à un LLM du réseau local ; WebLLM (dans le navigateur) reste à faire | Pas de gros modèle sur le téléphone |
 | Tests | Vitest | Rapide, même code pour tous les modules |
 | Configuration | Fichier YAML + réglages dans l'interface | Demandé |
 
 ## Arborescence
 
 ```
-src/engine/    moteur déterministe (phase 3, fait)
+src/engine/    moteur déterministe
 src/agents/    personnalité, objectifs, mémoire, contexte, cache, décision, repli comportemental
 src/llm/       LLMProvider et implémentations, détection matériel et runtime
-src/server/    serveur Node, WebSocket, sauvegardes sur disque
+src/host/      hôte de simulation, commun au serveur et au navigateur
+src/server/    serveur Node, sauvegardes sur disque, mise en route du LLM
 web/           interface PWA
 tests/         tests par module + simulations longues
 docs/          recherche, choix du LLM, architecture, feuille de route
