@@ -131,3 +131,12 @@ input:not([type=checkbox]):not([type=range]), select { background: var(--surface
 }
 @media (max-height: 500px) and (max-width: 819px) { #sheet { height: 70vh; } #modes { display: none; } }
 @media (prefers-reduced-motion: reduce) { #sheet { transition: none; } }
+/* Téléphone en paysage : peu de hauteur, on en rend le plus possible à la fiche. */
+@media (min-width: 820px) and (max-height: 520px) {
+  :root { --nav-h: 46px; }
+  #nav button { flex-direction: row; gap: 6px; font-size: 12px; }
+  #nav button span { font-size: 16px; }
+  #sheet, #sheet[data-size], #panel, #panel.peek { top: calc(var(--top-h) + var(--safe-t) + 6px); bottom: calc(var(--nav-h) + var(--safe-b) + 6px); width: 380px; }
+  #modes { right: 400px; }
+  #sheet-head { padding-top: 8px; }
+}

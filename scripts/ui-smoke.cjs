@@ -1,5 +1,5 @@
 // Vérification de l'interface dans un navigateur émulant un téléphone.
-// Nécessite Playwright (non installé par le projet) : node scripts/ui-smoke.cjs http://localhost:8765 [dossier-captures]
+// Nécessite Playwright (non installé par le projet) : node scripts/ui-smoke.cjs http://localhost:8765 [dossier-captures] [parcours]
 const { chromium, devices } = require('playwright');
 
 const url = process.argv[2] || 'http://localhost:8765';
@@ -77,10 +77,14 @@ async function scenario(browser, label, device, target) {
 
 (async () => {
   const browser = await chromium.launch();
-  await scenario(browser, 'telephone-serveur', devices['Pixel 7'], url);
-  await scenario(browser, 'telephone-autonome', devices['iPhone 13'], `${url}/?local`);
-  await scenario(browser, 'paysage', devices['Pixel 7 landscape'], url);
-  await scenario(browser, 'ordinateur', { viewport: { width: 1366, height: 800 } }, url);
+  const all = {
+    'telephone-serveur': [devices['Pixel 7'], url],
+    'telephone-autonome': [devices['iPhone 13'], `${url}/?local`],
+    paysage: [devices['Pixel 7 landscape'], url],
+    ordinateur: [{ viewport: { width: 1366, height: 800 } }, url],
+  };
+  // Quatrième argument facultatif : un seul parcours.
+  for (const [label, [device, target]] of Object.entries(all)) if (!process.argv[4] || process.argv[4] === label) await scenario(browser, label, device, target);
   await browser.close();
   console.log(process.exitCode ? 'Des vérifications ont échoué.' : 'Toutes les vérifications passent.');
 })();

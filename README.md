@@ -52,6 +52,7 @@ npm test                    # tous les tests
 npm run sim -- 2400 50 1    # partie de 200 ans en ligne de commande (ticks, nations, graine)
 npm run setup               # installation guidée du LLM
 npm run build               # reconstruit l'interface dans web/dist
+npm run examples            # régénère le dossier examples/
 ```
 
 ## Ce que fait le simulateur
