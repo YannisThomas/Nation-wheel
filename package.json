@@ -7,7 +7,11 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "sim": "tsx scripts/run-sim.ts"
+    "sim": "tsx scripts/run-sim.ts",
+    "start": "npm run build && tsx src/server/index.ts",
+    "serve": "tsx src/server/index.ts",
+    "setup": "tsx scripts/setup.ts",
+    "build": "node scripts/build-web.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

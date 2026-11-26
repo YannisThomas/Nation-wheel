@@ -1,0 +1,38 @@
+# Copiez ce fichier en config.yaml pour modifier les réglages.
+
+simulation:
+  tick_duration: month
+  max_nations: 500
+  nations: 50
+  seed: 1
+  map_width: 160
+  map_height: 90
+  start_year: 1800
+
+llm:
+  enabled: true
+  provider: local
+  model: auto          # auto = choisi selon le matériel ; sinon un nom de modèle
+  runtime: auto        # auto, ollama, llama.cpp, lmstudio, vllm, openai-compatible
+  base_url: ""         # vide = adresse locale habituelle du runtime
+  family: qwen3.5      # qwen3.5 ou gemma4
+  tools: true
+  timeout_ms: 60000
+  fast_model: ""       # pour forcer un modèle par niveau
+  national_model: ""
+  strategic_model: ""
+
+decision:
+  llm_frequency: adaptive   # low, adaptive, high
+  strategic_threshold: 0.8
+  national_threshold: 0.6
+  fast_threshold: 0.35
+  max_calls_per_tick: 0     # 0 = automatique
+
+hardware:
+  ram_gb: 0     # 0 = détection automatique
+  vram_gb: 0
+
+server:
+  port: 8765
+  lan: false    # true = accessible depuis le réseau local (téléphone)
