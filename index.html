@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#12283f">
+<title>Nation Wheel Sim</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="map" aria-label="Carte du monde"></canvas>
+
+<header id="top">
+  <button id="play" data-act="play" aria-label="Lecture">▶</button>
+  <button data-act="step" aria-label="Avancer d'un mois">⏭</button>
+  <button id="speed" data-act="speed" aria-label="Vitesse">2×</button>
+  <button data-act="menu" aria-label="Menu de la partie" title="Menu de la partie">⏹</button>
+  <div class="when"><b id="date">…</b><small id="summary">Chargement du monde…</small></div>
+  <span id="llm">Sans LLM</span>
+</header>
+
+<div id="modes" role="group" aria-label="Affichage de la carte">
+  <button data-act="mode" data-id="political" class="on">Politique</button>
+  <button data-act="mode" data-id="relations">Relations</button>
+  <button data-act="mode" data-id="blocs">Blocs</button>
+  <button data-act="mode" data-id="stability">Stabilité</button>
+  <button data-act="mode" data-id="tech">Technologie</button>
+  <button data-act="mode" data-id="terrain">Terrain</button>
+  <button data-act="fit" aria-label="Recentrer la carte">⤢</button>
+</div>
+<div id="legend" hidden></div>
+<button id="season" data-act="season" aria-label="Saison en cours">Saison 1</button>
+<div id="toasts" aria-live="polite"></div>
+
+<section id="sheet" hidden data-size="half" aria-label="Fiche de la nation">
+  <button id="sheet-handle" data-act="sheet-size" aria-label="Agrandir ou réduire la fiche"><i></i></button>
+  <div id="sheet-head"></div>
+  <div id="sheet-tabs" class="tabs"></div>
+  <div id="sheet-body" class="scroll"></div>
+</section>
+
+<section id="panel" hidden>
+  <header><h2 id="panel-title"></h2><button data-act="close-panel" aria-label="Fermer">✕</button></header>
+  <div id="panel-body" class="scroll"></div>
+</section>
+
+<nav id="nav" aria-label="Sections">
+  <button data-act="panel" data-id="carte" class="on"><span>🗺</span>Carte</button>
+  <button data-act="panel" data-id="nations"><span>🏳</span>Nations</button>
+  <button data-act="panel" data-id="diplomatie"><span>🤝</span>Diplomatie</button>
+  <button data-act="panel" data-id="evenements"><span>📜</span>Événements</button>
+  <button data-act="panel" data-id="plus"><span>☰</span>Plus</button>
+</nav>
+<section id="menu" hidden aria-label="Menu de la partie"></section>
+<section id="draw" hidden aria-label="Tirage des roues"></section>
+<input type="file" id="file" accept="application/json,.json" hidden>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "Nation Wheel Sim",
+  "short_name": "Nation Wheel",
+  "description": "Simulateur géopolitique : des nations autonomes sur une carte vivante.",
+  "lang": "fr",
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#12283f",
+  "theme_color": "#12283f",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
