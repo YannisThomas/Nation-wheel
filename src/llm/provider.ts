@@ -75,7 +75,9 @@ export class OllamaProvider implements LLMProvider {
       })),
       ...(req.schema ? { format: req.schema } : {}),
       ...(req.tools?.length ? { tools: req.tools.map((t) => ({ type: 'function', function: t })) } : {}),
-      options: { temperature: req.temperature ?? 0.6, num_predict: req.maxTokens ?? 400 },
+      // num_ctx explicite : une décision avec outils pèse 2 000 à 2 500 jetons en entrée (mesuré),
+      // trop près du défaut d'Ollama (4 096) qui tronque le début du prompt sans prévenir.
+      options: { temperature: req.temperature ?? 0.6, num_predict: req.maxTokens ?? 400, num_ctx: 8192 },
     };
     const r = (await http(`${this.baseUrl}/api/chat`, { method: 'POST', body: JSON.stringify(body), timeoutMs: req.timeoutMs })) as
       { message?: { content?: string; tool_calls?: { function: { name: string; arguments: unknown } }[] } };

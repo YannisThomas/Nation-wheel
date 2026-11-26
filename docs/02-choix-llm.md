@@ -35,7 +35,7 @@ Point à vérifier à l'installation : la documentation Unsloth (août 2026) dis
 | Machine | Détection | Rapide | National | Stratégique |
 |---|---|---|---|---|
 | Faible | ≤ 8 Go RAM, pas de GPU | `qwen3.5:2b` | `qwen3.5:2b` | `qwen3.5:2b` |
-| Moyenne | 16 Go RAM, ou 6–8 Go VRAM | `qwen3.5:4b` | `qwen3.5:4b` | `qwen3.5:9b` si VRAM ≥ 8 Go, sinon 4b |
+| Moyenne | 16 Go RAM, ou 6–8 Go VRAM | `qwen3.5:4b` | `qwen3.5:4b` | `qwen3.5:9b` si VRAM ≥ 10 Go, sinon 4b (les deux ne tiennent pas ensemble dans 8 Go) |
 | Puissante | 12–16 Go VRAM, ou Mac 32 Go | `qwen3.5:4b` | `qwen3.5:9b` | `qwen3.5:9b` (thinking activé) |
 | Très puissante | ≥ 24 Go VRAM, ou Mac ≥ 48 Go | `qwen3.5:4b` | `qwen3.5:9b` | `qwen3.5:27b` |
 
