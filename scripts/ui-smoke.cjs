@@ -69,7 +69,7 @@ async function scenario(browser, label, device, target) {
   await page.click('[data-act="jfilter"][data-id="Admin"]'); await page.waitForTimeout(400);
   if (!(await page.textContent('#panel-body')).includes('[Admin]')) fail(`${label} : l'intervention administrateur n'est pas au journal`);
   await page.click('#nav [data-id="carte"]');
-  for (const mode of ['relations', 'blocs', 'stability', 'tech', 'terrain', 'political']) { await page.click('[data-act="close-sheet"]').catch(() => {}); await page.click(`#modes [data-id="${mode}"]`); await page.waitForTimeout(300); await shot(`carte-${mode}`); }
+  for (const mode of ['relations', 'blocs', 'stability', 'tech', 'terrain', 'political']) { await page.click('[data-act="close-sheet"]', { timeout: 500 }).catch(() => {}); await page.click(`#modes [data-id="${mode}"]`); await page.waitForTimeout(300); await shot(`carte-${mode}`); }
   if (errors.length) fail(`${label} : erreurs console : ${errors.slice(0, 3).join(' | ')}`);
   console.log(`${label} : parcours terminé (${date})`);
   await ctx.close();

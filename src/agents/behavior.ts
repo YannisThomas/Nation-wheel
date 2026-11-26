@@ -2,7 +2,7 @@
 // et la situation. Il sert de repli quand le LLM est indisponible, traite les
 // décisions mineures et présélectionne les options montrées au LLM.
 
-import { peekRel } from '../engine/diplomacy';
+import { partnersOf, peekRel } from '../engine/diplomacy';
 import { rand } from '../engine/rng';
 import { sideOf, warBetween, warsOf, other } from '../engine/war';
 import type { Nation, Preferences, World } from '../engine/types';
@@ -18,13 +18,13 @@ const terrainDefense = (n: Nation) => 1 + 0.5 * n.geo.terrain.mountain + 0.25 * 
 
 function allies(world: World, id: number): number {
   let sum = 0;
-  for (const o of world.nations) if (o.alive && o.id !== id && (peekRel(world, id, o.id)?.defense_pact ?? -1) >= 0) sum += o.mil.power;
+  for (const o of partnersOf(world, id)) if (world.nations[o].alive && (peekRel(world, id, o)?.defense_pact ?? -1) >= 0) sum += world.nations[o].mil.power;
   return sum;
 }
 
 const pacts = (world: World, id: number) => {
   let c = 0;
-  for (const o of world.nations) if (o.alive && o.id !== id && (peekRel(world, id, o.id)?.defense_pact ?? -1) >= 0) c++;
+  for (const o of partnersOf(world, id)) if (world.nations[o].alive && (peekRel(world, id, o)?.defense_pact ?? -1) >= 0) c++;
   return c;
 };
 

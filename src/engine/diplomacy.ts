@@ -21,6 +21,28 @@ export function getRel(world: World, a: number, b: number): Relation {
   return rel;
 }
 
+// Index « qui a une relation avec qui », reconstruit au plus une fois par tick :
+// évite de parcourir toutes les nations pour chaque décision.
+let indexFor: World | null = null;
+let indexTick = -1;
+let index = new Map<number, number[]>();
+
+/** Nations avec lesquelles `id` entretient une relation enregistrée. */
+export function partnersOf(world: World, id: number): number[] {
+  if (indexFor !== world || indexTick !== world.tick) {
+    index = new Map();
+    for (const key in world.relations) {
+      const sep = key.indexOf(':');
+      const a = +key.slice(0, sep);
+      const b = +key.slice(sep + 1);
+      (index.get(a) ?? index.set(a, []).get(a)!).push(b);
+      (index.get(b) ?? index.set(b, []).get(b)!).push(a);
+    }
+    indexFor = world; indexTick = world.tick;
+  }
+  return index.get(id) ?? [];
+}
+
 export const TREATY_LABEL: Record<TreatyKind, string> = {
   trade: 'accord commercial', non_aggression: 'pacte de non-agression', defense_pact: 'pacte de défense',
 };

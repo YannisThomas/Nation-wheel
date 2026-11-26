@@ -2,7 +2,7 @@
 // accepterait. Le LLM comme le moteur comportemental choisissent dans cette liste.
 
 import { borrowingCapacity, validateAction } from '../engine/actions';
-import { peekRel, TREATY_LABEL } from '../engine/diplomacy';
+import { partnersOf, peekRel, TREATY_LABEL } from '../engine/diplomacy';
 import { sideOf, warsOf, other } from '../engine/war';
 import type { Action, Budget, Nation, Proposal, World } from '../engine/types';
 
@@ -27,19 +27,29 @@ const SECTORS = { infrastructure: 'les infrastructures', industry: 'l\'industrie
 
 const budgetDistance = (a: Budget, b: Budget) => (Object.keys(a) as (keyof Budget)[]).reduce((s, k) => s + Math.abs(a[k] - b[k]), 0);
 
+let powersFor: World | null = null;
+let powersTick = -1;
+let powers: number[] = [];
+function greatPowers(world: World): number[] {
+  if (powersFor !== world || powersTick !== world.tick) {
+    powers = world.nations.filter((o) => o.alive && (o.status === 'superpower' || o.status === 'great_power')).map((o) => o.id);
+    powersFor = world; powersTick = world.tick;
+  }
+  return powers;
+}
+
 /** Nations qui comptent pour celle-ci : voisins, ennemis, partenaires, grandes puissances. */
 export function relevantNations(world: World, n: Nation, max = 8): number[] {
   const score = new Map<number, number>();
   const bump = (id: number, v: number) => { if (id !== n.id && world.nations[id]?.alive) score.set(id, (score.get(id) ?? 0) + v); };
   for (const [id, len] of Object.entries(n.geo.neighbors)) bump(+id, 5 + Math.min(5, len / 3));
   for (const w of warsOf(world, n.id)) { const s = sideOf(w, n.id)!; for (const e of w[other(s)]) bump(e, 20); for (const a of w[s]) bump(a, 6); }
-  for (const o of world.nations) {
-    if (!o.alive || o.id === n.id) continue;
-    const rel = peekRel(world, n.id, o.id);
-    if (rel && (rel.defense_pact >= 0 || rel.trade >= 0 || rel.non_aggression >= 0 || rel.sanctions[0] || rel.sanctions[1])) bump(o.id, 4);
-    if (o.status === 'superpower' || o.status === 'great_power') bump(o.id, 2);
-    if (n.mind.attitudes[o.id]) bump(o.id, Math.abs(n.mind.attitudes[o.id]) / 25);
+  for (const id of partnersOf(world, n.id)) {
+    const rel = peekRel(world, n.id, id);
+    if (rel && (rel.defense_pact >= 0 || rel.trade >= 0 || rel.non_aggression >= 0 || rel.sanctions[0] || rel.sanctions[1])) bump(id, 4);
   }
+  for (const id of greatPowers(world)) bump(id, 2);
+  for (const id in n.mind.attitudes) bump(+id, Math.abs(n.mind.attitudes[id]) / 25);
   return [...score.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]).slice(0, max).map(([id]) => id);
 }
 

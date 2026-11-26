@@ -75,3 +75,4 @@ npm run build               # reconstruit l'interface dans web/dist
 - `docs/03-architecture.md` : architecture
 - `docs/04-regles-du-monde.md` : règles du moteur
 - `docs/ROADMAP.md` : état des phases
+- `examples/` : monde importable, fiches de nations, chronique d'une partie de 500 ans (`npm run examples` les régénère)
