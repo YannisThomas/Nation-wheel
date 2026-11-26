@@ -8,7 +8,10 @@ import { background, goals, preferences, surroundings } from '../agents/profile'
 import { adminCommand, type AdminCommand } from '../engine/admin';
 import { peekRel, pendingFor } from '../engine/diplomacy';
 import { formatDate } from '../engine/journal';
-import { createWorld, step } from '../engine/sim';
+import { createWorld, migrate, step } from '../engine/sim';
+import { previewTerrain } from '../engine/map';
+import { CLIMATE_FR, climateSeason, eraOf } from '../engine/seasons';
+import { DEFAULT_CONFIG } from '../engine/types';
 import { sideOf, warsOf } from '../engine/war';
 import type { JournalEntry, Nation, SimConfig, World } from '../engine/types';
 
@@ -38,6 +41,8 @@ export interface StateMsg {
   /** Cellules occupées dans une guerre en cours. */
   occupied: number[];
   world: { pop: number; gdp: number; alive: number; warsEnded: number; pacts: number; trades: number };
+  /** Saison du monde, son ère, et saison climatique de chaque hémisphère. */
+  season: { number: number; era: string; text: string; since: number; north: string; south: string; month: number; climate: boolean };
   llm: LlmStatus;
   decisions: (DecisionRecord & { id: number })[];
   selected: NationDetail | null;
@@ -63,6 +68,7 @@ export type Command =
   | { type: 'journal'; nation?: number; kinds?: string[]; before?: number; limit?: number }
   | { type: 'diplomacy' }
   | { type: 'new'; config: Partial<SimConfig> }
+  | { type: 'preview'; config: Partial<SimConfig> }
   | { type: 'export' } | { type: 'import'; data: string }
   | { type: 'admin'; command: AdminCommand }
   | { type: 'llm'; enabled: boolean };
@@ -235,6 +241,7 @@ export class SimHost {
       rows, infos, journal: journal.slice(-200), ownerDiff, occupied,
       wars: w.wars.map((x) => ({ id: x.id, name: x.name, attackers: x.attackers, defenders: x.defenders, start: x.start, score: Math.round(x.score), casualties: Math.round(Object.values(x.casualties).reduce((a, b) => a + b, 0)) })),
       world: { pop, gdp, alive, warsEnded: w.warsEnded, pacts, trades },
+      season: { number: w.season.number, era: eraOf(w).name, text: eraOf(w).text, since: w.season.start, north: CLIMATE_FR[climateSeason(w, 1)], south: CLIMATE_FR[climateSeason(w, -1)], month: w.tick % 12, climate: w.config.climateSeasons },
       llm: { enabled: this.llmEnabled, ...this.llmInfo, llm: s.llm, cache: s.cache, fallback: s.fallback, behavior: s.behavior },
       decisions: decisions.slice(-60),
       selected: this.selected !== null && w.nations[this.selected] ? this.detail(this.selected) : null,
@@ -273,6 +280,7 @@ export class SimHost {
     const { mind, ...rest } = n;
     return {
       ...rest,
+      climate: w.config.climateSeasons ? CLIMATE_FR[climateSeason(w, n.geo.latitude)] : '',
       background: background(w, n, around), prefs, goals: goals(n, prefs, around),
       threat: Math.round(around.threat * 100), mainThreat: around.mainThreat,
       relations,
@@ -316,13 +324,14 @@ export class SimHost {
         }
         return { pacts, sanctions, trades, proposals: w.proposals.map((p) => ({ from: p.from, to: p.to, kind: p.kind })) };
       }
+      case 'preview': return previewTerrain({ ...DEFAULT_CONFIG, ...cmd.config });
       case 'new': this.running = false; this.reset(createWorld(cmd.config ?? {})); this.broadcastInit(); return true;
       case 'export': return JSON.stringify(this.exportSave());
       case 'import': {
         const save = JSON.parse(cmd.data) as SaveFile;
         if (save?.format !== 'nation-wheel-save' || save.version !== 1 || save.world?.version !== 1) throw new Error('Fichier de sauvegarde non reconnu');
         this.running = false;
-        this.reset(save.world, save);
+        this.reset(migrate(save.world), save);
         this.broadcastInit();
         return true;
       }

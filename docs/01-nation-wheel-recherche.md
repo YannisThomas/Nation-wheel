@@ -20,7 +20,7 @@ Le site `nation-wheel.vercel.app` (classements) n'a pas été exploité.
 | Certains tirages sont des événements qui remodèlent l'existant | Événements aléatoires du moteur ; événements provoqués en mode administrateur |
 | Chaque nation appartient à une région | Cultures régionales à la création ; pas de régions nommées |
 | L'histoire ne se réécrit pas (retcons limités aux erreurs) | Journal en ajout seul ; les interventions administrateur y sont marquées |
-| Une saison se termine quand la carte est pleine ; la suivante ne remet pas le monde à zéro | Pas de saisons : la partie continue sans limite |
+| Une saison se termine quand la carte est pleine ; la suivante ne remet pas le monde à zéro | Saisons du monde : fin quand la carte est pleine ou après une durée maximale ; chaque nouvelle saison tire une ère, sans remise à zéro |
 
 ## Ce que la roue tire, d'après le tableau des nations
 

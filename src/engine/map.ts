@@ -1,5 +1,5 @@
 import { clamp, rand, randInt, type HasRng } from './rng';
-import { RESOURCES, TERRAINS, type Geo, type Nation, type Resource, type SimConfig, type Terrain, type World, type WorldMap } from './types';
+import { RESOURCES, TERRAINS, type Geo, type Nation, type Resource, type MapStyle, type SimConfig, type Terrain, type World, type WorldMap } from './types';
 
 const T = Object.fromEntries(TERRAINS.map((t, i) => [t, i])) as Record<Terrain, number>;
 export const OCEAN = T.ocean;
@@ -63,6 +63,30 @@ function fbm(x: number, y: number, seed: number): number {
   return sum;
 }
 
+/**
+ * Forme générale des terres. `noise(f)` est le relief fractal à la fréquence f ;
+ * dx et dy vont de -1 à 1. Les coordonnées étant normalisées, un aperçu en basse
+ * résolution a la même forme que la carte finale.
+ */
+function shape(style: MapStyle | undefined, dx: number, dy: number, noise: (f: number) => number): number {
+  const edge = Math.max(Math.abs(dx) ** 4, Math.abs(dy) ** 3);
+  const r = Math.hypot(dx * 0.9, dy);
+  switch (style) {
+    case 'pangaea': return noise(1) * 0.55 + (1 - r) * 0.5 - edge * 0.3;
+    case 'archipelago': return noise(3) - edge * 0.1;
+    case 'two_continents': return noise(1) * 0.7 + 0.3 * Math.max(Math.exp(-(((dx + 0.5) / 0.3) ** 2)), Math.exp(-(((dx - 0.5) / 0.3) ** 2))) - 0.35 * Math.exp(-((dx / 0.13) ** 2)) - edge * 0.45;
+    case 'inland_sea': return noise(1) * 0.6 + 0.45 * Math.min(1, r * 1.3) - 0.5 * Math.exp(-((r / 0.3) ** 2)) - edge * 0.75;
+    default: return noise(1) - edge * 0.45;
+  }
+}
+
+/** Terrain seul, en basse résolution : sert à l'aperçu du générateur de carte. */
+export function previewTerrain(cfg: SimConfig, width = 96): { width: number; height: number; terrain: number[] } {
+  const height = Math.round((width * cfg.height) / cfg.width);
+  const map = generateMap({ ...cfg, width, height, resources: 0 }, { rngState: cfg.seed | 0 });
+  return { width, height, terrain: map.terrain };
+}
+
 const BASE_FERTILITY: Record<Terrain, number> = {
   ocean: 0, plains: 0.9, forest: 0.5, hills: 0.4, mountain: 0.1, desert: 0.05, tundra: 0.08,
 };
@@ -91,15 +115,16 @@ export function generateMap(cfg: SimConfig, rng: HasRng): WorldMap {
       const dx = (x / width) * 2 - 1;
       const dy = (y / height) * 2 - 1;
       // Atténuation vers les bords : les continents ne touchent pas le cadre.
-      const edge = Math.max(Math.abs(dx) ** 4, Math.abs(dy) ** 3);
-      elevation[y * width + x] = fbm(x * scale, y * scale, seed) - edge * 0.45;
+      elevation[y * width + x] = shape(cfg.mapStyle, dx, dy, (f) => fbm(x * scale * f, y * scale * f, seed));
     }
   }
   const sorted = [...elevation].sort((a, b) => a - b);
   const seaLevel = sorted[Math.floor(n * (1 - cfg.landFraction))];
   const landElev = sorted.filter((e) => e > seaLevel);
-  const mountainLevel = landElev[Math.floor(landElev.length * 0.92)] ?? Infinity;
-  const hillLevel = landElev[Math.floor(landElev.length * 0.76)] ?? Infinity;
+  const relief = clamp(cfg.mountains ?? 1, 0, 2);
+  const mountainLevel = landElev[Math.floor(landElev.length * (1 - 0.08 * relief))] ?? Infinity;
+  const hillLevel = landElev[Math.floor(landElev.length * (1 - 0.24 * relief))] ?? Infinity;
+  const warmth = cfg.climate === 'cold' ? -0.2 : cfg.climate === 'hot' ? 0.2 : 0;
 
   const terrain = new Array<number>(n);
   const fertility = new Array<number>(n);
@@ -118,7 +143,7 @@ export function generateMap(cfg: SimConfig, rng: HasRng): WorldMap {
         land++;
         const latitude = Math.abs((y / (height - 1)) * 2 - 1); // 0 équateur, 1 pôles
         const moisture = fbm(x * scale * 1.7 + 50, y * scale * 1.7 + 50, seed + 999);
-        const temp = 1 - latitude - (e - seaLevel) * 0.6;
+        const temp = 1 - latitude - (e - seaLevel) * 0.6 + warmth;
         if (e > mountainLevel) t = 'mountain';
         else if (temp < 0.18) t = 'tundra';
         else if (e > hillLevel) t = 'hills';
@@ -160,7 +185,7 @@ export function generateMap(cfg: SimConfig, rng: HasRng): WorldMap {
     }
     fertility[i] = clamp(BASE_FERTILITY[t] + (river[i] ? 0.3 : 0) + (coastal ? 0.1 : 0), 0, 1);
     const [p, kinds] = DEPOSITS[t];
-    if (rand(rng) < p) resource[i] = RESOURCES.indexOf(kinds[randInt(rng, kinds.length)]);
+    if (rand(rng) < p * clamp(cfg.resources ?? 1, 0, 2)) resource[i] = RESOURCES.indexOf(kinds[randInt(rng, kinds.length)]);
   }
 
   return {
@@ -178,7 +203,7 @@ function emptyGeo(): Geo {
     terrain: Object.fromEntries(TERRAINS.map((t) => [t, 0])) as Record<Terrain, number>,
     riverCells: 0, parts: 0, fertility: 0,
     resources: Object.fromEntries(RESOURCES.map((r) => [r, 0])) as Record<Resource, number>,
-    neighbors: {}, strategic: 0, freeAdjacent: 0,
+    neighbors: {}, strategic: 0, freeAdjacent: 0, latitude: 0,
   };
 }
 
@@ -203,6 +228,7 @@ export function recomputeGeo(world: World): void {
     }
     const g = geos[o];
     g.cells++;
+    g.latitude += 1 - (2 * Math.floor(i / map.width)) / Math.max(1, map.height - 1);
     g.terrain[TERRAINS[map.terrain[i]]]++;
     g.fertility += map.fertility[i];
     if (map.river[i]) g.riverCells++;
@@ -247,6 +273,7 @@ export function recomputeGeo(world: World): void {
   for (const nation of nations) {
     const g = geos[nation.id];
     g.areaKm2 = g.cells * map.cellAreaKm2;
+    g.latitude = g.cells ? g.latitude / g.cells : 0;
     g.landlocked = g.coastCells === 0;
     if (g.cells > 0) for (const t of TERRAINS) g.terrain[t] /= g.cells;
     g.coastlineKm = Math.round(g.coastlineKm);

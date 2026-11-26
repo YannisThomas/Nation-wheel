@@ -4,6 +4,7 @@
 
 import { partnersOf, peekRel } from '../engine/diplomacy';
 import { rand } from '../engine/rng';
+import { climateSeason, eraMods, seasonality } from '../engine/seasons';
 import { sideOf, warBetween, warsOf, other } from '../engine/war';
 import type { Nation, Preferences, World } from '../engine/types';
 import type { Option } from './options';
@@ -27,6 +28,13 @@ const pacts = (world: World, id: number) => {
   for (const o of partnersOf(world, id)) if (world.nations[o].alive && (peekRel(world, id, o)?.defense_pact ?? -1) >= 0) c++;
   return c;
 };
+
+/** On n'ouvre pas une campagne à l'approche de l'hiver contre un pays aux hivers rudes. */
+function campaignPenalty(world: World, target: Nation): number {
+  if (!world.config.climateSeasons) return 0;
+  const s = climateSeason(world, target.geo.latitude);
+  return (s === 'winter' ? 22 : s === 'autumn' ? 14 : 0) * seasonality(target.geo.latitude);
+}
 
 /** Rapport de forces estimé si n attaquait t (alliés défensifs de t compris). */
 export const powerRatio = (world: World, n: Nation, t: Nation) =>
@@ -70,7 +78,7 @@ export function scoreOption(world: World, n: Nation, o: Option, sit: Situation):
       const lord = world.nations[n.overlord];
       const weak = warsOf(world, lord.id).length > 0 || lord.stability < 35 || lord.mil.power < 1.5 * n.mil.power;
       const o = peekRel(world, n.id, lord.id)?.opinion ?? 0;
-      return 8 + (weak ? 45 : 0) + (o < 0 ? 20 : 0) + 20 * P.risk + (n.colony ? 8 : 0) + (n.ideology === 'nationalist' ? 12 : 0);
+      return 8 * eraMods(world).unrest + (weak ? 45 : 0) + (o < 0 ? 20 : 0) + 20 * P.risk + (n.colony ? 8 : 0) + (n.ideology === 'nationalist' ? 12 : 0);
     }
     case 'go_offensive': { const e = wars[0][other(sideOf(wars[0], n.id)!)][0]; return powerRatio(world, n, world.nations[e]) > 0.9 ? 55 + 20 * P.offensive : 10; }
     case 'go_defensive': { const e = wars[0][other(sideOf(wars[0], n.id)!)][0]; return powerRatio(world, n, world.nations[e]) < 0.6 || ex > 70 ? 60 : 8; }
@@ -113,7 +121,8 @@ export function scoreOption(world: World, n: Nation, o: Option, sit: Situation):
       const r = powerRatio(world, n, t!);
       const claim = rel?.claims[n.id < t!.id ? 0 : 1] ? 15 : 0;
       return -55 + 60 * P.offensive + 25 * P.expansion + 20 * P.risk + 35 * Math.max(-1, Math.min(1.5, r - 1)) - opinion * 0.3 - feeling * 0.2 + claim
-        - (n.stability < 40 ? 30 : 0) - 15 * debt - 0.5 * n.infamy - (atWar ? 45 : 0) - 80 * n.overextension;
+        - (n.stability < 40 ? 30 : 0) - 15 * debt - 0.5 * n.infamy - (atWar ? 45 : 0) - 80 * n.overextension
+        + eraMods(world).aggression - campaignPenalty(world, t!);
     }
     case 'break_defense_pact': case 'break_non_aggression': return opinion < -35 ? 38 : 5;
     default: return 0;

@@ -26,10 +26,22 @@ export type LeaderTrait = (typeof LEADER_TRAITS)[number];
 
 export type Status = 'superpower' | 'great_power' | 'regional_power' | 'middle_power' | 'minor_power' | 'microstate';
 
+export const MAP_STYLES = ['continents', 'pangaea', 'archipelago', 'two_continents', 'inland_sea'] as const;
+export type MapStyle = (typeof MAP_STYLES)[number];
+
 export interface SimConfig {
   seed: number;
   /** random : nations tirées à la roue ; season1 : les nations de la saison 1 du wiki Nation Wheel. */
   roster: 'random' | 'season1';
+  mapStyle: MapStyle;
+  climate: 'cold' | 'temperate' | 'hot';
+  /** Relief et richesse du sous-sol : 0 = peu, 1 = normal, 2 = beaucoup. */
+  mountains: number;
+  resources: number;
+  /** Hiver, printemps, été, automne : effets mensuels selon la latitude. */
+  climateSeasons: boolean;
+  /** Durée maximale d'une saison du monde, en années. */
+  seasonYears: number;
   width: number;
   height: number;
   landFraction: number;
@@ -43,6 +55,12 @@ export interface SimConfig {
 export const DEFAULT_CONFIG: SimConfig = {
   seed: 1,
   roster: 'random',
+  mapStyle: 'continents',
+  climate: 'temperate',
+  mountains: 1,
+  resources: 1,
+  climateSeasons: true,
+  seasonYears: 30,
   width: 160,
   height: 90,
   landFraction: 0.36,
@@ -93,6 +111,8 @@ export interface Geo {
   strategic: number;
   /** Terres libres au contact du territoire (compte approximatif). */
   freeAdjacent: number;
+  /** Latitude moyenne, de -1 (pôle sud) à 1 (pôle nord). */
+  latitude: number;
 }
 
 export interface Budget {
@@ -329,6 +349,8 @@ export interface World {
   memoryCursor: number;
   /** Nombre de cellules terrestres de la carte. */
   landCells: number;
+  /** Saison du monde en cours et son ère. */
+  season: { number: number; start: number; era: string; mapFull: boolean; warsAtStart: number };
   /** Plus haut niveau technologique atteint (diffusion). */
   techFrontier: number;
 }

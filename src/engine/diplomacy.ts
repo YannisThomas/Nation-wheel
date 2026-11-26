@@ -2,6 +2,7 @@
 
 import { addJournal } from './journal';
 import { clamp } from './rng';
+import { eraMods } from './seasons';
 import type { Ideology, Nation, Proposal, Relation, TreatyKind, World } from './types';
 import { TREATY_KINDS } from './types';
 
@@ -126,6 +127,7 @@ export function tickDiplomacy(world: World): void {
   let worldGdp = 0;
   for (const n of nations) if (n.alive) worldGdp += n.gdp;
   worldGdp = Math.max(1e-6, worldGdp);
+  const tradeEra = eraMods(world).trade;
   const bonus = new Float64Array(nations.length);
   const penalty = new Float64Array(nations.length);
 
@@ -146,7 +148,7 @@ export function tickDiplomacy(world: World): void {
 
   for (const n of nations) {
     if (!n.alive) continue;
-    n.tradeBonus = Math.min(0.2, bonus[n.id]) * (n.blockaded ? 0.3 : 1) - Math.min(0.15, penalty[n.id]);
+    n.tradeBonus = Math.min(0.25, bonus[n.id] * tradeEra) * (n.blockaded ? 0.3 : 1) - Math.min(0.15, penalty[n.id]);
     const deposits = Object.values(n.geo.resources).reduce((x, y) => x + y, 0);
     n.exports = n.gdp * (0.06 + Math.max(0, n.tradeBonus) * 1.5) * (n.geo.landlocked ? 0.7 : 1.1) * (n.blockaded ? 0.4 : 1);
     n.imports = n.exports * (1.1 - Math.min(0.2, deposits / Math.max(1, n.geo.cells)));

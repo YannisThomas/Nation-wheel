@@ -2,6 +2,7 @@
 
 import { peekRel } from '../engine/diplomacy';
 import { formatDate } from '../engine/journal';
+import { CLIMATE_FR, climateSeason, eraOf, seasonality } from '../engine/seasons';
 import { gdpPerCapita } from '../engine/systems';
 import { sideOf, warsOf, other } from '../engine/war';
 import type { Nation, World } from '../engine/types';
@@ -54,7 +55,10 @@ export function buildContext(world: World, n: Nation, sit: Situation, options: O
   const low = (Object.entries(sit.prefs) as [string, number][]).sort((a, b) => a[1] - b[1]).slice(0, 3).map(([k, v]) => `${PREF_FR[k]} ${v}`).join(', ');
 
   const lines: string[] = [];
-  lines.push(`DATE : ${formatDate(world)}`, '', `NATION : ${n.name} (capitale ${n.capitalName}), ${STATUS_FR[n.status]}`);
+  const era = eraOf(world);
+  const climate = world.config.climateSeasons ? ` (${CLIMATE_FR[climateSeason(world, n.geo.latitude)]} chez nous${seasonality(n.geo.latitude) > 0.5 ? ', saisons très marquées' : ''})` : '';
+  lines.push(`ÈRE : saison ${world.season.number} du monde, « ${era.name} ». ${era.text}`);
+  lines.push(`DATE : ${formatDate(world)}${climate}`, '', `NATION : ${n.name} (capitale ${n.capitalName}), ${STATUS_FR[n.status]}`);
   if (n.overlord >= 0) lines.push(`Statut : ${n.colony ? 'colonie' : 'protectorat'} de ${world.nations[n.overlord].name} (tribut versé, pas de guerre de notre propre chef)`);
   lines.push(`Classe militaire : ${n.wheel.militaryClass} (${n.wheel.militaryRating}/11)`);
   lines.push(`Dirigeant : ${n.leader.name}, ${TRAIT_FR[n.leader.trait]}`, '', 'BACKGROUND :', `${background(world, n, sit.around).join('. ')}.`);

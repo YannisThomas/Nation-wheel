@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { DEFAULT_DECISION_CONFIG } from '../agents/director';
 import { DEFAULT_APP_CONFIG, mergeConfig, parseYaml, type AppConfig } from '../config';
 import { SimHost, type Command } from '../host/simhost';
+import { MAP_STYLES, type MapStyle } from '../engine/types';
 import { callsPerTick, setupLlm } from './llm-setup';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -31,7 +32,9 @@ export async function startServer(cfg: AppConfig, opts: { savesDir?: string; web
   const llm = await setupLlm(cfg, { test: opts.llmTest });
   const s = cfg.simulation;
   const host = new SimHost(
-    { nations: s.nations, seed: s.seed, width: s.map_width, height: s.map_height, startYear: s.start_year, roster: s.roster === 'season1' ? 'season1' : 'random' },
+    { nations: s.nations, seed: s.seed, width: s.map_width, height: s.map_height, startYear: s.start_year, roster: s.roster === 'season1' ? 'season1' : 'random',
+      mapStyle: (MAP_STYLES as readonly string[]).includes(s.map_style) ? (s.map_style as MapStyle) : 'continents', landFraction: Math.min(0.6, Math.max(0.15, s.land_fraction)),
+      climate: s.climate === 'cold' || s.climate === 'hot' ? s.climate : 'temperate', climateSeasons: s.climate_seasons, seasonYears: Math.max(5, s.season_years) },
     { ...DEFAULT_DECISION_CONFIG, strategicThreshold: cfg.decision.strategic_threshold, nationalThreshold: cfg.decision.national_threshold, fastThreshold: cfg.decision.fast_threshold, maxLlmCallsPerTick: callsPerTick(cfg, llm.plan) },
   );
   host.llmEnabled = cfg.llm.enabled;

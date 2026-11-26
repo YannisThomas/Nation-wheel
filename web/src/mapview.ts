@@ -12,7 +12,7 @@ const SQ3 = Math.sqrt(3);
 // Arête partagée avec chaque voisin (ordre de neighborTable : O, E, NO, NE, SO, SE).
 const EDGE = [[3, 4], [0, 1], [4, 5], [5, 0], [2, 3], [1, 2]];
 const CORNER = [0, 1, 2, 3, 4, 5].map((i) => { const a = ((60 * i - 30) * Math.PI) / 180; return [Math.cos(a), Math.sin(a)]; });
-const TERRAIN_COLORS = ['#12283f', '#5d7f45', '#33603a', '#857a4d', '#8b8680', '#b89f62', '#a9b7ba'];
+export const TERRAIN_COLORS = ['#12283f', '#5d7f45', '#33603a', '#857a4d', '#8b8680', '#b89f62', '#a9b7ba'];
 const OCEAN = '#12283f';
 const FREE = '#3a3f38';
 /** Rampe séquentielle bleue : sur fond sombre, le clair signifie « élevé ». */
@@ -36,9 +36,12 @@ export class MapView {
   wars: { attackers: number[]; defenders: number[] }[] = [];
   onTap: (cell: number, owner: number) => void = () => {};
   quality = 1;
+  /** Intensité de l'hiver par hémisphère, de 0 à 1 : voile de neige sur la carte. */
+  winter = { north: 0, south: 0 };
 
   private ctx: CanvasRenderingContext2D;
   private base = document.createElement('canvas');
+  private snow = { north: document.createElement('canvas'), south: document.createElement('canvas'), key: '' };
   private map: MapData | null = null;
   private nb: Int32Array = new Int32Array(0);
   private k = 1; private tx = 0; private ty = 0;
@@ -248,6 +251,31 @@ export class MapView {
     if (this.selected !== null) pass('#ffffff', Math.max(2, u * 0.26), (o, p) => o === this.selected && p !== o);
     this.baseDirty = false;
     this.dirty = true;
+    this.renderSnow(u);
+  }
+
+  /** Calque de neige par hémisphère : plus opaque vers les pôles. Peint une fois par taille de carte. */
+  private renderSnow(u: number): void {
+    const m = this.map!;
+    const key = `${m.width}x${m.height}@${u}`;
+    if (this.snow.key === key) return;
+    this.snow.key = key;
+    for (const [canvas, north] of [[this.snow.north, true], [this.snow.south, false]] as const) {
+      canvas.width = this.base.width; canvas.height = this.base.height;
+      const c = canvas.getContext('2d')!;
+      for (let i = 0; i < m.width * m.height; i++) {
+        if (m.terrain[i] === 0) continue;
+        const lat = 1 - (2 * Math.floor(i / m.width)) / Math.max(1, m.height - 1);
+        if (lat >= 0 !== north) continue;
+        const s = Math.max(0, Math.min(1, (Math.abs(lat) - 0.15) / 0.6));
+        if (s <= 0.05) continue;
+        const [cx, cy] = this.center(i);
+        c.fillStyle = `rgba(240,246,250,${(0.8 * s).toFixed(2)})`;
+        c.beginPath();
+        for (let k = 0; k < 6; k++) c.lineTo((cx + CORNER[k][0] * 1.03) * u, (cy + CORNER[k][1] * 1.03) * u);
+        c.fill();
+      }
+    }
   }
 
   private draw(): void {
@@ -261,6 +289,14 @@ export class MapView {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = this.quality > 1 ? 'high' : 'low';
     ctx.drawImage(this.base, this.tx, this.ty, (this.base.width / this.unit) * this.k, (this.base.height / this.unit) * this.k);
+    if (!this.historyOwner && this.mode !== 'terrain') {
+      for (const [canvas, alpha] of [[this.snow.north, this.winter.north], [this.snow.south, this.winter.south]] as const) {
+        if (alpha <= 0 || !canvas.width) continue;
+        ctx.globalAlpha = alpha;
+        ctx.drawImage(canvas, this.tx, this.ty, (canvas.width / this.unit) * this.k, (canvas.height / this.unit) * this.k);
+      }
+      ctx.globalAlpha = 1;
+    }
     const dpr = canvas.width / canvas.getBoundingClientRect().width;
     // Capitales et noms : seulement pour les nations assez grandes à l'écran.
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';

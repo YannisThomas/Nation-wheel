@@ -5,7 +5,7 @@ import type { InitMsg, NationDetail, NationInfo, StateMsg } from '../../src/host
 import type { JournalEntry } from '../../src/engine/types';
 import { lineChart } from './charts';
 import { connect, type Client } from './client';
-import { DIV, MapView, nationColor, SEQ, type MapMode } from './mapview';
+import { DIV, MapView, nationColor, SEQ, TERRAIN_COLORS, type MapMode } from './mapview';
 
 // ---------- Utilitaires ----------
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector(sel) as T;
@@ -21,10 +21,15 @@ const BUDGET_FR: Record<string, string> = { military: 'Armée', research: 'Reche
 const DOCTRINE_FR: Record<string, string> = { defensive: 'défensive', balanced: 'équilibrée', offensive: 'offensive', naval: 'navale', guerrilla: 'guérilla' };
 const TIER_FR: Record<string, string> = { behavior: 'moteur comportemental', fast: 'modèle rapide', national: 'modèle national', strategic: 'modèle stratégique' };
 const SOURCE_FR: Record<string, string> = { behavior: 'Moteur comportemental', llm: 'LLM', cache: 'Cache', fallback: 'Repli (LLM écarté)' };
-const MAJOR = ['war_declared', 'peace', 'annexed', 'secession', 'betrayal', 'capital_fall'];
+const MAJOR = ['war_declared', 'peace', 'annexed', 'secession', 'betrayal', 'capital_fall', 'season', 'independence'];
+const SEASON_ICON: Record<string, string> = { hiver: '❄', printemps: '🌱', été: '☀', automne: '🍂' };
+// Intensité du voile de neige selon le mois (hémisphère nord ; le sud est décalé de six mois).
+const SNOW = [1, 0.8, 0.3, 0, 0, 0, 0, 0, 0, 0, 0.25, 0.6];
+const MAP_STYLE_FR: Record<string, string> = { continents: 'Continents', pangaea: 'Pangée (un seul bloc)', archipelago: 'Archipels', two_continents: 'Deux continents', inland_sea: 'Mer intérieure' };
 const KIND_GROUPS: Record<string, string[] | null> = {
   Tout: null,
-  Guerres: ['war_declared', 'war_joined', 'peace', 'annexed', 'capital_fall', 'landing', 'secession'],
+  Saisons: ['season'],
+  Guerres: ['war_declared', 'war_joined', 'peace', 'annexed', 'capital_fall', 'landing', 'secession', 'independence'],
   Diplomatie: ['treaty', 'treaty_broken', 'betrayal', 'sanction', 'sanction_lifted', 'threat', 'aid', 'claim', 'refusal'],
   Politique: ['regime_change', 'succession', 'default', 'event', 'colonized'],
   Admin: ['admin'],
@@ -144,7 +149,7 @@ function sheetBody(d: NationDetail): string {
       ${section('Tirage de la roue', `<div class="grid">${stat('Régime', h(d.wheel.government || GOV_FR[d.government]))}${stat('Économie', h(d.wheel.economy || '—'))}${stat('Classe militaire', h(d.wheel.militaryClass), `${d.wheel.militaryRating} / 11`)}${stat('Traits', d.wheel.tags.length ? d.wheel.tags.map((t) => h(TAG_FR[t] ?? t)).join(', ') : '—')}</div>`)}
       ${section('Population', '<canvas class="chart" data-series="0"></canvas>')}
       ${section('Identité', `<p>Capitale <b>${h(info.capitalName)}</b> · culture ${h(d.culture)} · langue ${h(d.language)}<br>Dirigeant <b>${h(d.leader.name)}</b> (${h(TRAIT_FR[d.leader.trait])}), au pouvoir depuis ${yearOf(d.leader.since)}<br>Fondée en ${yearOf(d.foundedTick)}</p>`)}
-      ${section('Géographie', `<p>${d.geo.landlocked ? 'Sans accès à la mer' : `${big(d.geo.coastlineKm)} km de côtes`} · ${Object.keys(d.geo.neighbors).length} voisin(s) · ${d.geo.parts > 1 ? `${d.geo.parts} territoires séparés` : 'territoire d\'un seul tenant'} · position stratégique ${d.geo.strategic}/100</p><div class="chips">${Object.entries(d.geo.terrain).filter(([k, v]) => k !== 'ocean' && v > 0.04).sort((a, b) => b[1] - a[1]).map(([k, v]) => chip(`${TERRAIN_FR[k]} ${pct(v)}`)).join('')}</div>`)}`;
+      ${section('Géographie', `<p>${d.geo.landlocked ? 'Sans accès à la mer' : `${big(d.geo.coastlineKm)} km de côtes`} · ${Object.keys(d.geo.neighbors).length} voisin(s) · ${d.geo.parts > 1 ? `${d.geo.parts} territoires séparés` : 'territoire d\'un seul tenant'} · position stratégique ${d.geo.strategic}/100${d.climate ? ` · ${SEASON_ICON[d.climate] ?? ''} ${h(d.climate)} en ce moment (${Math.abs(d.geo.latitude) < 0.25 ? 'climat tropical, saisons peu marquées' : Math.abs(d.geo.latitude) > 0.6 ? 'hautes latitudes, hivers rudes' : 'saisons modérées'})` : ''}</p><div class="chips">${Object.entries(d.geo.terrain).filter(([k, v]) => k !== 'ocean' && v > 0.04).sort((a, b) => b[1] - a[1]).map(([k, v]) => chip(`${TERRAIN_FR[k]} ${pct(v)}`)).join('')}</div>`)}`;
   }
 }
 
@@ -205,7 +210,9 @@ async function panelBody(): Promise<string> {
     case 'evenements': {
       const kinds = KIND_GROUPS[ui.journalFilter];
       const list = [...journal].reverse().filter((e) => !kinds || kinds.includes(e.type));
-      return `<div class="tabs">${Object.keys(KIND_GROUPS).map((k) => `<button data-act="jfilter" data-id="${k}" class="${ui.journalFilter === k ? 'on' : ''}">${k}</button>`).join('')}</div>${journalList(list, 150)}`;
+      const se = s.season;
+      const head = ui.journalFilter !== 'Saisons' ? '' : `<div class="card"><b>Saison ${se.number} du monde : ${h(se.era)}</b><span>${h(se.text)}</span><span>Depuis ${yearOf(se.since)}. Une saison se termine quand la carte est pleine ou après ${init!.config.seasonYears} ans ; la suivante tire une nouvelle ère qui pèse sur toutes les nations.</span>${se.climate ? `<span>${SEASON_ICON[se.north]} Hémisphère nord : ${se.north} · ${SEASON_ICON[se.south]} hémisphère sud : ${se.south}. L'hiver freine les offensives, pèse sur la santé et les recettes ; l'automne apporte les moissons.</span>` : ''}</div>`;
+      return `${head}<div class="tabs">${Object.keys(KIND_GROUPS).map((k) => `<button data-act="jfilter" data-id="${k}" class="${ui.journalFilter === k ? 'on' : ''}">${k}</button>`).join('')}</div>${journalList(list, 150)}`;
     }
     case 'chronologie': {
       ui.history ??= await client.cmd({ type: 'history' });
@@ -274,6 +281,17 @@ function settingsHtml(): string {
       <label>Nombre de nations<input name="nations" type="number" inputmode="numeric" min="2" max="500" value="${c.nations}"></label>
       <label>Graine du monde<input name="seed" type="number" inputmode="numeric" value="${c.seed}"></label>
       <label>Taille de la carte<select name="size"><option value="80x45">Petite</option><option value="120x68" ${c.width === 120 ? 'selected' : ''}>Moyenne</option><option value="160x90" ${c.width === 160 ? 'selected' : ''}>Grande</option><option value="240x135" ${c.width === 240 ? 'selected' : ''}>Très grande</option></select></label>
+      <h3>Générateur de carte</h3>
+      <canvas id="preview" class="preview" aria-label="Aperçu de la carte"></canvas>
+      <label>Type de monde<select name="mapStyle">${Object.entries(MAP_STYLE_FR).map(([k, v]) => `<option value="${k}" ${c.mapStyle === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+      <label><span>Part de terres : <output>${Math.round(c.landFraction * 100)}</output> %</span><input name="land" type="range" min="15" max="60" value="${Math.round(c.landFraction * 100)}"></label>
+      <label>Climat<select name="climate">${[['cold', 'Froid'], ['temperate', 'Tempéré'], ['hot', 'Chaud']].map(([k, v]) => `<option value="${k}" ${c.climate === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+      <label>Relief<select name="mountains">${[[0.4, 'Plat'], [1, 'Normal'], [1.8, 'Montagneux']].map(([k, v]) => `<option value="${k}" ${c.mountains === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+      <label>Ressources<select name="resources">${[[0.4, 'Rares'], [1, 'Normales'], [2, 'Abondantes']].map(([k, v]) => `<option value="${k}" ${c.resources === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+      <div class="buttons"><button type="button" data-act="dice">🎲 Autre graine</button></div>
+      <h3>Saisons</h3>
+      <label class="switch"><input type="checkbox" name="climateSeasons" ${c.climateSeasons ? 'checked' : ''}> Saisons climatiques (hiver, été…)</label>
+      <label>Durée maximale d'une saison du monde (années)<input name="seasonYears" type="number" inputmode="numeric" min="5" max="200" value="${c.seasonYears}"></label>
       <button class="wide">Créer un nouveau monde</button></form>`)}
     ${section('Sauvegardes', `<form data-form="save" class="form inline"><input name="name" placeholder="Nom de la sauvegarde" maxlength="40" required><button>Sauvegarder</button></form><div id="saves"><p class="empty">Chargement…</p></div>
       <div class="buttons"><button data-act="export">Exporter un fichier</button><button data-act="import">Importer un fichier</button></div>`)}
@@ -308,9 +326,37 @@ async function renderPanel(force = false): Promise<void> {
     if (c.isConnected) lineChart(c, series.map((p) => ({ x: yearOf(p.tick), y: p.v[idx] })), idx === 1 ? money : idx === 3 ? (v) => `${Math.round(v)}` : big, (x) => `${Math.round(x)}`);
   }
   if (which === 'parametres') {
+    preview();
     client.saves().then((list) => { const box = document.getElementById('saves'); if (box) box.innerHTML = list.length ? `<ul class="saves">${list.map((s) => `<li><span><b>${h(s.name)}</b><small>${new Date(s.time).toLocaleString('fr-FR')}</small></span><button data-act="load" data-id="${h(s.name)}">Charger</button><button data-act="del-save" data-id="${h(s.name)}" aria-label="Supprimer">🗑</button></li>`).join('')}</ul>` : empty('Aucune sauvegarde.'); });
     client.about().then((a) => { const box = document.getElementById('about'); if (box) box.innerHTML = `<ul class="plain small">${a.report.map((r) => `<li>${h(r)}</li>`).join('')}</ul>`; });
   }
+}
+
+// ---------- Générateur de carte ----------
+function formConfig(form: HTMLFormElement): Record<string, unknown> {
+  const f = Object.fromEntries(new FormData(form)) as Record<string, string>;
+  const [width, height] = f.size.split('x').map(Number);
+  return {
+    nations: Number(f.nations), seed: Number(f.seed), width, height, roster: f.roster, mapStyle: f.mapStyle, landFraction: Number(f.land) / 100,
+    climate: f.climate, mountains: Number(f.mountains), resources: Number(f.resources), climateSeasons: f.climateSeasons === 'on',
+    seasonYears: Math.max(5, Math.min(200, Number(f.seasonYears) || 30)),
+  };
+}
+
+let previewTimer = 0;
+/** Redessine l'aperçu de la carte d'après les réglages du formulaire. */
+function preview(): void {
+  clearTimeout(previewTimer);
+  previewTimer = window.setTimeout(async () => {
+    const form = document.querySelector<HTMLFormElement>('[data-form="new"]');
+    const canvas = document.querySelector<HTMLCanvasElement>('#preview');
+    if (!form || !canvas) return;
+    const p = await client.cmd<{ width: number; height: number; terrain: number[] }>({ type: 'preview', config: formConfig(form) });
+    if (!canvas.isConnected) return;
+    canvas.width = p.width; canvas.height = p.height;
+    const c = canvas.getContext('2d')!;
+    for (let i = 0; i < p.terrain.length; i++) { c.fillStyle = TERRAIN_COLORS[p.terrain[i]]; c.fillRect(i % p.width, Math.floor(i / p.width), 1, 1); }
+  }, 120);
 }
 
 // ---------- Barre du haut, carte ----------
@@ -321,6 +367,9 @@ function renderTop(): void {
   $('#play').setAttribute('aria-label', s.running ? 'Pause' : 'Lecture');
   $('#speed').textContent = s.speed >= 1000 ? 'max' : `${s.speed}×`;
   $('#summary').textContent = `${s.world.alive} nations · ${big(s.world.pop)} hab. · ${s.wars.length} guerre${s.wars.length > 1 ? 's' : ''}`;
+  const se = s.season;
+  $('#season').textContent = `Saison ${se.number} · ${se.era}${se.climate ? ` · ${SEASON_ICON[se.north]} ${se.north} au nord` : ''}`;
+  map.winter = se.climate ? { north: SNOW[se.month], south: SNOW[(se.month + 6) % 12] } : { north: 0, south: 0 };
   const badge = $('#llm');
   badge.textContent = s.llm.available && s.llm.enabled ? 'LLM' : 'Sans LLM';
   badge.className = s.llm.available && s.llm.enabled ? 'on' : '';
@@ -397,6 +446,7 @@ function openPanel(p: string | null): void {
   $('#panel').classList.remove('peek');
   for (const b of document.querySelectorAll<HTMLElement>('#nav button')) b.classList.toggle('on', (b.dataset.id ?? 'carte') === (p ?? 'carte') || (b.dataset.id === 'plus' && !!p && !['nations', 'diplomatie', 'evenements'].includes(p)));
   if (!p) $('#panel').hidden = true;
+  $('#panel-body').scrollTop = 0;
   renderPanel(true);
 }
 async function select(id: number | null): Promise<void> {
@@ -429,6 +479,8 @@ document.addEventListener('click', async (ev) => {
     case 'sheet-size': ui.sheetSize = ui.sheetSize === 'peek' ? 'half' : ui.sheetSize === 'half' ? 'full' : 'peek'; $('#sheet').dataset.size = ui.sheetSize; break;
     case 'sort': ui.sort = id; renderPanel(true); break;
     case 'more': ui.shown += 100; renderPanel(true); break;
+    case 'season': ui.journalFilter = 'Saisons'; openPanel('evenements'); break;
+    case 'dice': { const seed = document.querySelector<HTMLInputElement>('[data-form="new"] [name="seed"]'); if (seed) { seed.value = String(Math.floor(Math.random() * 1e6)); preview(); } break; }
     case 'jfilter': ui.journalFilter = id; renderPanel(true); break;
     case 'mode': map.mode = id as MapMode; for (const b of document.querySelectorAll('#modes button')) b.classList.toggle('on', b === el); map.invalidate(); legend(); break;
     case 'fit': map.fit(); break;
@@ -453,11 +505,13 @@ document.addEventListener('click', async (ev) => {
 document.addEventListener('change', (ev) => {
   const el = ev.target as HTMLInputElement | HTMLSelectElement;
   if (el.dataset.act === 'admin-other') ui.adminOther = Number(el.value);
+  if (el.closest('[data-form="new"]')) preview();
   if (el.dataset.act === 'quality') { map.quality = Number(el.value); map.invalidate(); try { localStorage.setItem('quality', el.value); } catch { /* stockage indisponible */ } }
   if (el.id === 'file' && (el as HTMLInputElement).files?.[0]) (el as HTMLInputElement).files![0].text().then((data) => run(client.cmd({ type: 'import', data }), 'Partie importée.'));
 });
 document.addEventListener('input', (ev) => {
   const el = ev.target as HTMLInputElement;
+  if (el.closest('[data-form="new"]')) { if (el.name === 'land') el.closest('label')!.querySelector('output')!.textContent = el.value; preview(); }
   if (el.dataset.act !== 'history') return;
   ui.historyIndex = Number(el.value);
   showHistory();
@@ -470,8 +524,7 @@ document.addEventListener('submit', async (ev) => {
   const form = ev.target as HTMLFormElement;
   const f = Object.fromEntries(new FormData(form)) as Record<string, string>;
   if (form.dataset.form === 'new') {
-    const [width, height] = f.size.split('x').map(Number);
-    await run(client.cmd({ type: 'new', config: { nations: Number(f.nations), seed: Number(f.seed), width, height, roster: f.roster } }), 'Nouveau monde créé.');
+    await run(client.cmd({ type: 'new', config: formConfig(form) }), 'Nouveau monde créé.');
     openPanel(null);
   } else if (form.dataset.form === 'save') { await run(client.save(f.name.trim()), 'Partie sauvegardée.'); renderPanel(true); }
   else if (form.dataset.form === 'llm') await run(client.cmd({ type: 'llm_connect', ...f }), 'LLM connecté.');

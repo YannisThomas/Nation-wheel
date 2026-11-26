@@ -58,6 +58,8 @@ npm run examples            # régénère le dossier examples/
 ## Ce que fait le simulateur
 
 - **Monde** : carte procédurale en cellules hexagonales (terrains, fleuves, gisements). Nations tirées à la roue comme dans Nation Wheel (régime, économie, classe militaire sur 11, traits, colonies, rivalités), ou les 103 nations de la saison 1 du wiki.
+- **Générateur de carte** : cinq types de monde, part de terres, climat, relief, ressources, avec aperçu.
+- **Saisons** : saisons climatiques qui rythment récoltes, épidémies et campagnes militaires ; saisons du monde qui tirent une ère (âge d'or du commerce, ère des conquêtes, grande dépression…).
 - **Moteur** : économie, dette, démographie, IDH, stabilité, recherche, armée, commerce, sanctions, guerres avec conquête de cellules, paix, annexions, sécessions, changements de régime, événements.
 - **Agents** : background et personnalité dérivés des caractéristiques et du vécu, objectifs pondérés, mémoire hiérarchique, rancunes et gratitudes.
 - **Décision** : le LLM (ou le moteur comportemental) choisit parmi des options valides ; le moteur valide, applique et chiffre les conséquences.

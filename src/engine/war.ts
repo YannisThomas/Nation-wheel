@@ -5,6 +5,7 @@ import { addProposal, getRel, peekRel, severTies, shiftOpinion } from './diploma
 import { addJournal } from './journal';
 import { neighborTable, OCEAN } from './map';
 import { clamp, rand, randNorm } from './rng';
+import { eraMods, winterSeverity } from './seasons';
 import type { Nation, PeaceTerms, War, World } from './types';
 
 export const TRUCE_TICKS = 60;
@@ -193,6 +194,7 @@ export function tickWars(world: World): void {
   for (const n of nations) n.blockaded = false;
   if (!world.wars.length) return;
   const nb = neighborTable(map.width, map.height);
+  const exhaustion = eraMods(world).exhaustion;
 
   // Un seul balayage de la carte : cellules de y au contact de x, pour chaque couple en guerre.
   const hostile = new Set<number>();
@@ -255,7 +257,9 @@ export function tickWars(world: World): void {
       const attack = (X: Nation, Y: Nation, sx: number, sy: number, sign: number) => {
         const cells = border.get(X.id * N + Y.id);
         if (!cells || !cells.length || !Y.alive) return;
-        const ratio = (sx / Math.max(1e-9, sy * terrainDefense(Y) * (war.stance[Y.id] === 'defensive' ? 1.25 : 1))) * Math.exp(randNorm(world) * 0.25);
+        const ratio = (sx / Math.max(1e-9, sy * terrainDefense(Y) * (war.stance[Y.id] === 'defensive' ? 1.25 : 1))) * Math.exp(randNorm(world) * 0.25)
+          // Attaquer en plein hiver un pays aux hivers rudes coûte cher.
+          * (1 - 0.35 * Math.min(1, winterSeverity(world, Y)));
         if (ratio <= 1.15) return;
         // Un petit territoire ne tombe pas en un mois : au plus 4 % des cellules par assaut.
         const k = Math.min(cells.length, Math.max(1, Math.round(Math.min(4, (ratio - 1) * 2, Y.geo.cells * 0.04))));
@@ -293,7 +297,8 @@ export function tickWars(world: World): void {
         if (X.geo.landlocked || Y.geo.landlocked || X.mil.navy <= 1.5 * Y.mil.navy + 1) continue;
         Y.blockaded = true;
         fought = true;
-        if (war.stance[x] !== 'offensive' || rand(world) > 0.15) continue;
+        // Les tempêtes d'hiver rendent les débarquements rares.
+        if (war.stance[x] !== 'offensive' || rand(world) > 0.15 * (1 - 0.7 * Math.min(1, winterSeverity(world, Y)))) continue;
         for (let tries = 0; tries < 200; tries++) {
           const c = Math.floor(rand(world) * map.owner.length);
           if (map.owner[c] !== y) continue;
@@ -311,7 +316,7 @@ export function tickWars(world: World): void {
     if (!world.wars.includes(war)) continue;
 
     war.idle = fought ? 0 : war.idle + 1;
-    for (const id of [...war.attackers, ...war.defenders]) nations[id].warExhaustion = clamp(nations[id].warExhaustion + 1, 0, 150);
+    for (const id of [...war.attackers, ...war.defenders]) nations[id].warExhaustion = clamp(nations[id].warExhaustion + 0.6 + 0.4 * exhaustion + 0.3 * winterSeverity(world, nations[id]), 0, 150);
     const LA = nations[war.attackers[0]];
     const LD = nations[war.defenders[0]];
     const age = world.tick - war.start;

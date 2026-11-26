@@ -6,6 +6,7 @@ import { carryingCapacity } from './map';
 import { addJournal } from './journal';
 import { clamp, randNorm, pick, spin, rand } from './rng';
 import { trySecession } from './secession';
+import { climateSeason, eraMods, harvestFactor, winterSeverity } from './seasons';
 import { GOVERNMENTS, LEADER_TRAITS, type Nation, type Status, type World } from './types';
 
 /** Coût d'un point d'équipement militaire, Md$. */
@@ -48,7 +49,7 @@ export function tickNation(world: World, n: Nation): void {
   const m = n.mil;
 
   // --- Budget ---
-  const revenue = (n.gdp * n.taxRate * (0.6 + 0.4 * n.stability / 100)) / 12;
+  const revenue = ((n.gdp * n.taxRate * (0.6 + 0.4 * n.stability / 100)) / 12) * harvestFactor(world, n);
   const debtRatio = n.debt / Math.max(1e-6, n.gdp);
   const interestRate = Math.min(0.25, 0.02 + Math.max(0, debtRatio - 0.6) * 0.05);
   const interest = (n.debt * interestRate) / 12;
@@ -68,6 +69,8 @@ export function tickNation(world: World, n: Nation): void {
     }
   }
   n.revenue = revenue * 12;
+  const era = eraMods(world);
+  const winter = winterSeverity(world, n);
   n.expenses = (spend + interest) * 12;
   if (n.treasury < 0) { n.debt -= n.treasury; n.treasury = 0; }
   const reserve = revenue * 2;
@@ -90,7 +93,7 @@ export function tickNation(world: World, n: Nation): void {
   const research = share('research');
   const dTech = 0.025 * (research * (1 - n.militaryResearchShare) / 0.015) * (0.3 + 0.7 * n.education / 100) * (1 - n.tech / TECH_MAX)
     + 0.004 * Math.max(0, world.techFrontier - n.tech) / 50;
-  n.tech = clamp(n.tech + Math.min(0.15, dTech * (n.leader.trait === 'scholar' ? 1.1 : 1)), 0, TECH_MAX);
+  n.tech = clamp(n.tech + Math.min(0.15, dTech * era.tech * (n.leader.trait === 'scholar' ? 1.1 : 1)), 0, TECH_MAX);
   const milCeiling = Math.max(0, 1 - m.tech / (n.tech + 20));
   m.tech = clamp(m.tech + Math.min(0.15, 0.025 * (research * n.militaryResearchShare / 0.005) * milCeiling) - 0.01, 0, TECH_MAX);
 
@@ -134,14 +137,15 @@ export function tickNation(world: World, n: Nation): void {
   m.power = militaryPower(n);
 
   // --- Production ---
-  const potential = potentialGdp(n);
+  const potential = potentialGdp(n) * era.growth;
   n.gdp = Math.max((n.pop * 100) / 1e9, n.gdp + (potential - n.gdp) * 0.012 + n.gdp * randNorm(world) * 0.002);
   n.gdpGrowth = Math.pow(n.gdp / Math.max(1e-9, gdp0), 12) - 1;
 
   // --- Population ---
   n.hdi = computeHdi(n);
-  const capacity = Math.max(1000, carryingCapacity(n, world.map) * (1 + Math.min(2, gdpPerCapita(n) / 15000)));
-  const natural = 0.03 * (1 - n.hdi) + 0.001 - 0.006 * n.hdi * n.hdi;
+  const capacity = Math.max(1000, carryingCapacity(n, world.map) * era.fertility * (1 + Math.min(2, gdpPerCapita(n) / 15000)));
+  // L'hiver tue davantage là où la santé publique est faible.
+  const natural = 0.03 * (1 - n.hdi) + 0.001 - 0.006 * n.hdi * n.hdi + era.population - 0.012 * winter * (1 - n.health / 100);
   const pressure = n.pop / capacity;
   const growth = pressure > 1 ? -0.02 * Math.min(1, pressure - 1) + Math.min(natural, 0)
     : natural > 0 ? natural * (1 - pressure) : natural;
@@ -154,7 +158,8 @@ export function tickNation(world: World, n: Nation): void {
     - 15 * Math.max(0, debtRatio - 1) - 25 * m.mobilization - 60 * Math.max(0, n.taxRate - 0.35)
     + 8 * clamp(welfare / 0.09 - 1, -1, 1)
     - 0.25 * n.warExhaustion - 40 * Math.min(0.5, n.overextension) - 70 * Math.max(0, n.geo.cells / world.landCells - 0.06)
-    + (n.leader.trait === 'reformer' || n.leader.trait === 'populist' ? 3 : 0);
+    + (n.leader.trait === 'reformer' || n.leader.trait === 'populist' ? 3 : 0)
+    + era.stability - 3 * winter + (world.config.climateSeasons && climateSeason(world, n.geo.latitude) === 'autumn' ? 1.5 : 0);
   n.warExhaustion = Math.max(0, n.warExhaustion - 0.6);
   n.stability = clamp(n.stability + (stabilityTarget - n.stability) * 0.04 + randNorm(world) * 0.6, 0, 100);
   n.qualityOfLife = 100 * (0.6 * n.hdi + 0.25 * n.stability / 100 + 0.15 * (1 - m.mobilization));
@@ -168,7 +173,7 @@ export function tickNation(world: World, n: Nation): void {
     n.stability = Math.max(45, clamp(n.stability + 25, 0, 100));
     addJournal(world, 'regime_change', [n.id], `Le régime de ${n.name} s'effondre : ${old} → ${n.government}.`);
     if (rand(world) < 0.6) trySecession(world, n);
-  } else if (n.stability < 35 && n.geo.cells / world.landCells > 0.12 && rand(world) < 0.006) {
+  } else if (n.stability < 35 && n.geo.cells / world.landCells > 0.12 && rand(world) < 0.006 * era.unrest) {
     // Surextension impériale : les provinces lointaines se détachent.
     trySecession(world, n);
   } else if (rand(world) < 1 / (12 * 18)) {
@@ -184,7 +189,11 @@ const EVENTS = [
 export function randomEvents(world: World): void {
   for (const n of world.nations) {
     if (!n.alive || rand(world) >= world.config.eventRate) continue;
-    switch (spin(world, EVENTS)) {
+    // Les saisons pèsent sur les aléas : sécheresses d'été, épidémies d'hiver, tempêtes d'automne.
+    const season = world.config.climateSeasons ? climateSeason(world, n.geo.latitude) : null;
+    const weight = (kind: string, w: number) => kind === 'bad_harvest' ? w * (season === 'summer' || season === 'autumn' ? 1.8 : season === 'winter' ? 0.2 : 1)
+      : kind === 'epidemic' ? w * (season === 'winter' ? 2.2 : 1) * (world.season.era === 'pandemic' ? 3 : 1) : kind === 'disaster' ? w * (season === 'autumn' ? 1.6 : 1) : w;
+    switch (spin(world, EVENTS.map(([k, w]) => [k, weight(k, w)] as const))) {
       case 'bad_harvest':
         n.pop *= 0.995; n.stability = clamp(n.stability - 5, 0, 100);
         addJournal(world, 'event', [n.id], `Mauvaises récoltes en ${n.name}.`); break;

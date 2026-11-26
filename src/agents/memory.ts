@@ -129,6 +129,9 @@ function ingest(world: World, e: JournalEntry): void {
       remember(world, N[a], e, `Nous avons pris notre indépendance de ${name(b)}`, 0.9, [b], {}, { risk: 3 });
       if (N[b].alive) remember(world, N[b], e, `${name(a)} s'est affranchi de notre tutelle`, 0.7, [a], { [a]: -20 });
       break;
+    case 'season':
+      for (const o of N) if (o.alive) remember(world, o, e, `Une nouvelle ère s'ouvre pour le monde (saison ${e.data?.season})`, 0.5, []);
+      break;
     case 'landing':
       remember(world, N[b], e, `${name(a)} a débarqué sur nos côtes`, 0.6, [a], { [a]: -10 }, { navy: 5 });
       break;

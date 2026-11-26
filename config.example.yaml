@@ -9,6 +9,11 @@ simulation:
   map_width: 160
   map_height: 90
   start_year: 1800
+  map_style: continents   # continents, pangaea, archipelago, two_continents, inland_sea
+  land_fraction: 0.36     # part de terres, de 0.15 à 0.6
+  climate: temperate      # cold, temperate, hot
+  climate_seasons: true   # hiver, printemps, été, automne
+  season_years: 30        # durée maximale d'une saison du monde
 
 llm:
   enabled: true

@@ -31,6 +31,39 @@ Un tick vaut un mois. Tous les nombres ci-dessous sont dans le code (`src/engine
 - Pacte de défense : la victime d'une attaque appelle ses alliés. Refuser ou ignorer l'appel rompt le pacte et est enregistré comme une trahison.
 - Blocs = groupes de nations reliées par des pactes de défense. Sphère d'influence = petit pays lié à un partenaire au PIB cinq fois supérieur.
 
+## Saisons climatiques
+
+Chaque mois appartient à une saison, opposée d'un hémisphère à l'autre. Leur poids dépend de la latitude : nul sous les tropiques, maximal près des pôles.
+
+- **Hiver** : une offensive contre un pays aux hivers rudes perd jusqu'à 35 % de son efficacité, les débarquements deviennent rares, l'usure de guerre monte plus vite. La mortalité augmente là où la santé est faible, la stabilité baisse, les épidémies sont deux fois plus fréquentes.
+- **Automne** : moissons. Les recettes des pays agricoles montent, la stabilité aussi ; les tempêtes sont plus fréquentes.
+- **Été** : recettes en hausse, sécheresses plus probables.
+- Les nations en tiennent compte : elles évitent d'ouvrir une campagne à l'approche de l'hiver contre un pays nordique.
+
+L'option `climateSeasons: false` les désactive.
+
+## Saisons du monde
+
+Comme dans Nation Wheel, l'histoire avance par saisons. Une saison se termine quand la carte est pleine (plus aucune terre libre à portée d'une nation), ou après `seasonYears` années (30 par défaut). La suivante tire une **ère**, qui s'applique à toutes les nations tant qu'elle dure :
+
+| Ère | Effets |
+|---|---|
+| Fondation | Aucun : c'est la première saison |
+| Âge d'or du commerce | Commerce ×1,6, économie +3 %, moins de guerres |
+| Ère des conquêtes | Nations plus agressives, usure de guerre réduite |
+| Grande dépression | Économie −8 %, commerce réduit, stabilité en baisse |
+| Petit âge glaciaire | Terres moins fertiles, hivers une fois et demie plus rudes |
+| Révolution scientifique | Recherche ×1,6 |
+| Printemps des peuples | Sécessions et indépendances bien plus fréquentes, stabilité en baisse |
+| Grande paix | Nations beaucoup moins agressives, commerce et stabilité en hausse |
+| Grande pandémie | Population en recul, épidémies triplées, commerce réduit |
+
+Le changement de saison est inscrit au journal avec un bilan, entre dans la mémoire des nations et figure dans le contexte donné au LLM.
+
+## Générateur de carte
+
+Réglages : type de monde (continents, pangée, archipels, deux continents, mer intérieure), part de terres, climat (froid, tempéré, chaud), relief, richesse en ressources, taille et graine. L'interface affiche un aperçu avant de créer le monde.
+
 ## Tirage de la roue
 
 À la création, chaque nation tire un régime, une spécialité économique, une note militaire sur 11, des traits et un statut de départ (libre, colonie, protectorat, rivale, alliée, partenaire commerciale, paria). La note militaire est ensuite recalculée chaque année : 4 correspond à la puissance médiane du monde, et chaque doublement de puissance ajoute environ 2 points.
